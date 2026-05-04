@@ -1,0 +1,26 @@
+{
+  "name": "med-career-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@mendable/firecrawl-js": "^4.20.1",
+    "@tavily/core": "^0.7.3",
+    "axios": "^1.15.2",
+    "docx": "^9.6.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mammoth": "^1.12.0",
+    "node-cache": "^5.1.2",
+    "openai": "^6.35.0",
+    "playwright": "^1.59.1"
+  }
+}

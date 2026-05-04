@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Applicant Profile - Med Career Evaluator</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background: #f5f7fa;
+      color: #1f2933;
+    }
+
+    h2, h3 {
+      color: #2c3e50;
+    }
+
+    .page-wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .section {
+      background: white;
+      padding: 18px;
+      margin-bottom: 20px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      padding: 11px 16px;
+      margin: 5px 5px 5px 0;
+      background: #2c7be5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    button.danger {
+      background: #b3261e;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      font-weight: normal;
+    }
+
+    .checkbox-label input {
+      width: auto;
+      margin: 0;
+    }
+
+    .referee-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 12px;
+      background: #fafafa;
+    }
+
+    .actions {
+      position: sticky;
+      bottom: 0;
+      background: #f5f7fa;
+      padding: 12px 0;
+      border-top: 1px solid #ddd;
+    }
+
+    #status {
+      background: #eef3f8;
+      border: 1px solid #d0d7de;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 800px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="page-wrap">
+  <h2>Med Career Evaluator</h2>
+  <p>Create the applicant profile first. The job search, scoring, CV, and cover letter tools will use this information on the next page.</p>
+
+  <div class="section">
+    <h3>1. Applicant Details</h3>
+
+    <div class="grid-2">
+      <div>
+        <label>Name</label>
+        <input id="name" placeholder="Applicant full name">
+      </div>
+
+      <div>
+        <label>Email</label>
+        <input id="email" placeholder="Email address">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Phone</label>
+        <input id="phone" placeholder="Phone number">
+      </div>
+
+      <div>
+        <label>Location</label>
+        <input id="location" placeholder="Suburb / State / Country">
+      </div>
+    </div>
+
+    <label>LinkedIn / Portfolio / Website</label>
+    <input id="linkedin" placeholder="Optional link">
+  </div>
+
+  <div class="section">
+    <h3>2. Career Target</h3>
+
+    <div class="grid-3">
+      <div>
+        <label>Target job level</label>
+        <select id="jobLevel">
+          <option>Intern</option>
+          <option selected>RMO</option>
+          <option>PHO</option>
+          <option>Registrar</option>
+          <option>Unaccredited Registrar</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Preferred state</label>
+        <select id="stateFilter">
+          <option selected>All states</option>
+          <option>Queensland</option>
+          <option>New South Wales</option>
+          <option>Victoria</option>
+          <option>South Australia</option>
+          <option>Western Australia</option>
+          <option>Tasmania</option>
+          <option>Northern Territory</option>
+          <option>Australian Capital Territory</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Main specialty interest</label>
+        <input id="specialtyInterest" placeholder="Emergency, medicine, ICU, surgery, anaesthesia">
+      </div>
+    </div>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="willingToRelocate">
+      Willing to relocate
+    </label>
+  </div>
+
+  <div class="section">
+    <h3>3. AHPRA and Visa Status</h3>
+
+    <div class="grid-2">
+      <div>
+        <label>AHPRA registration status</label>
+        <select id="ahpra">
+          <option>Eligible for limited registration</option>
+          <option>Limited registration</option>
+          <option>Provisional registration</option>
+          <option>General registration</option>
+          <option>Not registered yet</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Visa / work rights status</label>
+        <select id="visa" onchange="updateSponsorshipFromVisa()">
+          <option>Requires sponsorship</option>
+          <option>482 visa</option>
+          <option>Have working rights</option>
+          <option>Partner visa</option>
+          <option>Permanent resident</option>
+          <option>Citizen</option>
+        </select>
+      </div>
+    </div>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="needsSponsorship" checked>
+      Needs sponsorship / IMG-friendly employer
+    </label>
+  </div>
+
+  <div class="section">
+    <h3>4. CV Content</h3>
+
+    <label>CV Mode</label>
+    <select id="cvMode">
+      <option>Use Structured Template</option>
+      <option>Use Pasted CV</option>
+    </select>
+
+    <label>Upload existing CV Word document</label>
+    <p style="margin-top: 0; color: #555;">Optional. Upload a .docx CV to auto-fill pasted CV mode.</p>
+    <input type="file" id="cvUpload" accept=".docx" onchange="uploadCVFile()">
+
+    <label>Existing CV text</label>
+    <textarea id="baseCv" placeholder="Paste full existing CV here if using pasted CV mode"></textarea>
+
+    <label>Professional summary</label>
+    <textarea id="cvSummary" placeholder="Short professional summary"></textarea>
+
+    <label>Education</label>
+    <textarea id="education" placeholder="Degrees, universities, years"></textarea>
+
+    <label>Work history / experience</label>
+    <textarea id="experience" placeholder="Hospital roles, departments, countries, dates"></textarea>
+
+    <label>Clinical skills</label>
+    <textarea id="skills" placeholder="ED skills, ward cover, procedures, communication, teamwork"></textarea>
+
+    <label>Courses / certifications</label>
+    <textarea id="cvCourses" placeholder="BLS, ALS, emergency medicine courses, audits, workshops"></textarea>
+
+    <label>Audits / research / publications</label>
+    <textarea id="cvAudits" placeholder="Audits, quality improvement, research, presentations"></textarea>
+
+    <label>Extra notes for AI</label>
+    <textarea id="extraNotes" placeholder="Anything the AI should know when creating CVs and cover letters"></textarea>
+  </div>
+
+  <div class="section">
+    <h3>5. Referees</h3>
+
+    <label class="checkbox-label">
+      <input type="checkbox" id="refereesOnRequest" onchange="toggleReferees()">
+      Referees available on request
+    </label>
+
+    <label>General referee notes</label>
+    <textarea id="cvReferees" placeholder="Optional notes about referees"></textarea>
+
+    <div id="refereeSection">
+      <div class="referee-card">
+        <h4>Referee 1</h4>
+        <div class="grid-2">
+          <input id="referee1Name" placeholder="Name">
+          <input id="referee1Email" placeholder="Email">
+        </div>
+        <div class="grid-2">
+          <input id="referee1Phone" placeholder="Phone">
+          <input id="referee1Department" placeholder="Department / Position">
+        </div>
+        <input id="referee1Hospital" placeholder="Hospital / Health Service">
+        <label class="checkbox-label"><input type="checkbox" id="includeReferee1" checked> Include Referee 1</label>
+      </div>
+
+      <div class="referee-card">
+        <h4>Referee 2</h4>
+        <div class="grid-2">
+          <input id="referee2Name" placeholder="Name">
+          <input id="referee2Email" placeholder="Email">
+        </div>
+        <div class="grid-2">
+          <input id="referee2Phone" placeholder="Phone">
+          <input id="referee2Department" placeholder="Department / Position">
+        </div>
+        <input id="referee2Hospital" placeholder="Hospital / Health Service">
+        <label class="checkbox-label"><input type="checkbox" id="includeReferee2" checked> Include Referee 2</label>
+      </div>
+
+      <div class="referee-card">
+        <h4>Referee 3</h4>
+        <div class="grid-2">
+          <input id="referee3Name" placeholder="Name">
+          <input id="referee3Email" placeholder="Email">
+        </div>
+        <div class="grid-2">
+          <input id="referee3Phone" placeholder="Phone">
+          <input id="referee3Department" placeholder="Department / Position">
+        </div>
+        <input id="referee3Hospital" placeholder="Hospital / Health Service">
+        <label class="checkbox-label"><input type="checkbox" id="includeReferee3"> Include Referee 3</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="saveProfilePreset()">Save Profile</button>
+    <button onclick="loadProfilePreset()" class="secondary">Load Saved Profile</button>
+    <button onclick="clearProfilePreset()" class="danger">Clear Saved Profile</button>
+    <button onclick="clearAllFields()" class="danger">Clear All Fields</button>
+    <button onclick="saveAndContinue()">Save and Continue to Job Search</button>
+    <div id="status">Profile not saved yet.</div>
+  </div>
+</div>
+
+<script>
+function updateSponsorshipFromVisa() {
+  const visa = document.getElementById("visa").value.toLowerCase();
+  const needsSponsorship = document.getElementById("needsSponsorship");
+
+  if (
+    visa.includes("requires sponsorship") ||
+    visa.includes("482")
+  ) {
+    needsSponsorship.checked = true;
+  } else if (
+    visa.includes("citizen") ||
+    visa.includes("permanent resident") ||
+    visa.includes("working rights") ||
+    visa.includes("partner visa")
+  ) {
+    needsSponsorship.checked = false;
+  }
+}
+
+function buildRefereeText(number) {
+  const name = document.getElementById(`referee${number}Name`)?.value.trim() || "";
+  const email = document.getElementById(`referee${number}Email`)?.value.trim() || "";
+  const phone = document.getElementById(`referee${number}Phone`)?.value.trim() || "";
+  const department = document.getElementById(`referee${number}Department`)?.value.trim() || "";
+  const hospital = document.getElementById(`referee${number}Hospital`)?.value.trim() || "";
+
+  if (!name && !email && !phone && !department && !hospital) return "";
+
+  return [
+    `Referee ${number}`,
+    name ? `Name: ${name}` : "Name: [Add referee name]",
+    email ? `Email: ${email}` : "Email: [Add email]",
+    phone ? `Phone: ${phone}` : "Phone: [Add phone]",
+    department ? `Department / Position: ${department}` : "Department / Position: [Add department / position]",
+    hospital ? `Hospital / Health Service: ${hospital}` : "Hospital / Health Service: [Add hospital]"
+  ].join("\n");
+}
+
+function getProfileObject() {
+  return {
+    name: document.getElementById("name").value,
+    email: document.getElementById("email").value,
+    phone: document.getElementById("phone").value,
+    location: document.getElementById("location").value,
+    linkedin: document.getElementById("linkedin").value,
+    jobLevel: document.getElementById("jobLevel").value,
+    stateFilter: document.getElementById("stateFilter").value,
+    specialtyInterest: document.getElementById("specialtyInterest").value,
+    willingToRelocate: document.getElementById("willingToRelocate").checked,
+    ahpra: document.getElementById("ahpra").value,
+    visa: document.getElementById("visa").value,
+    needsSponsorship: document.getElementById("needsSponsorship").checked,
+    cvMode: document.getElementById("cvMode").value,
+    baseCv: document.getElementById("baseCv").value,
+    cvSummary: document.getElementById("cvSummary").value,
+    education: document.getElementById("education").value,
+    experience: document.getElementById("experience").value,
+    skills: document.getElementById("skills").value,
+    cvCourses: document.getElementById("cvCourses").value,
+    cvAudits: document.getElementById("cvAudits").value,
+    extraNotes: document.getElementById("extraNotes").value,
+    refereesOnRequest: document.getElementById("refereesOnRequest").checked,
+    cvReferees: document.getElementById("cvReferees").value,
+    referee1Name: document.getElementById("referee1Name").value,
+    referee1Email: document.getElementById("referee1Email").value,
+    referee1Phone: document.getElementById("referee1Phone").value,
+    referee1Department: document.getElementById("referee1Department").value,
+    referee1Hospital: document.getElementById("referee1Hospital").value,
+    referee2Name: document.getElementById("referee2Name").value,
+    referee2Email: document.getElementById("referee2Email").value,
+    referee2Phone: document.getElementById("referee2Phone").value,
+    referee2Department: document.getElementById("referee2Department").value,
+    referee2Hospital: document.getElementById("referee2Hospital").value,
+    referee3Name: document.getElementById("referee3Name").value,
+    referee3Email: document.getElementById("referee3Email").value,
+    referee3Phone: document.getElementById("referee3Phone").value,
+    referee3Department: document.getElementById("referee3Department").value,
+    referee3Hospital: document.getElementById("referee3Hospital").value,
+    includeReferee1: document.getElementById("includeReferee1").checked,
+    includeReferee2: document.getElementById("includeReferee2").checked,
+    includeReferee3: document.getElementById("includeReferee3").checked,
+    savedAt: new Date().toISOString()
+  };
+}
+
+function getProfile() {
+  const profile = getProfileObject();
+  const selectedReferees = [
+    profile.includeReferee1 ? buildRefereeText(1) : "",
+    profile.includeReferee2 ? buildRefereeText(2) : "",
+    profile.includeReferee3 ? buildRefereeText(3) : ""
+  ].filter(Boolean).join("\n\n");
+
+  return `
+Visa: ${profile.visa}
+Needs Sponsorship: ${profile.needsSponsorship ? "Yes" : "No"}
+AHPRA: ${profile.ahpra}
+Level: ${profile.jobLevel}
+Preferred State: ${profile.stateFilter}
+Specialty Interest: ${profile.specialtyInterest}
+Willing to Relocate: ${profile.willingToRelocate ? "Yes" : "No"}
+
+Name: ${profile.name}
+Email: ${profile.email}
+Phone: ${profile.phone}
+Location: ${profile.location}
+LinkedIn: ${profile.linkedin}
+
+CV Mode: ${profile.cvMode}
+
+Existing CV:
+${profile.baseCv}
+
+Structured CV Template:
+
+Education:
+${profile.education}
+
+Professional Summary:
+${profile.cvSummary}
+
+Experience:
+${profile.experience}
+
+Skills:
+${profile.skills}
+
+Courses / Certifications:
+${profile.cvCourses}
+
+Audits / Research / Publications:
+${profile.cvAudits}
+
+Extra Notes:
+${profile.extraNotes}
+
+Referees:
+${profile.cvReferees}
+
+Selected Referees for this application:
+${profile.refereesOnRequest ? "Referees available on request" : (selectedReferees || "No referees selected or supplied.")}
+`;
+}
+
+function saveProfilePreset() {
+  const profile = getProfileObject();
+  localStorage.setItem("profilePreset", JSON.stringify(profile));
+  localStorage.setItem("applicantProfile", JSON.stringify(profile));
+  localStorage.setItem("applicantProfileText", getProfile());
+  document.getElementById("status").innerText = "Profile saved.";
+}
+
+function loadProfilePreset() {
+  const profile = JSON.parse(localStorage.getItem("applicantProfile") || localStorage.getItem("profilePreset") || "null");
+
+  if (!profile) {
+    alert("No saved profile found.");
+    return;
+  }
+
+  Object.keys(profile).forEach(key => {
+    const el = document.getElementById(key);
+    if (!el) return;
+
+    if (el.type === "checkbox") {
+      el.checked = Boolean(profile[key]);
+    } else {
+      el.value = profile[key] || "";
+    }
+  });
+
+  toggleReferees();
+  document.getElementById("status").innerText = "Saved profile loaded.";
+}
+
+function clearProfilePreset() {
+  localStorage.removeItem("profilePreset");
+  localStorage.removeItem("applicantProfile");
+  localStorage.removeItem("applicantProfileText");
+  document.getElementById("status").innerText = "Saved profile cleared.";
+}
+
+function clearAllFields() {
+  document.querySelectorAll("input, textarea").forEach(el => {
+    if (el.type === "checkbox") {
+      el.checked = false;
+    } else if (el.type !== "file") {
+      el.value = "";
+    }
+  });
+
+  document.getElementById("jobLevel").value = "RMO";
+  document.getElementById("stateFilter").value = "All states";
+  document.getElementById("ahpra").value = "Eligible for limited registration";
+  document.getElementById("visa").value = "Requires sponsorship";
+  document.getElementById("cvMode").value = "Use Structured Template";
+  document.getElementById("needsSponsorship").checked = true;
+  document.getElementById("includeReferee1").checked = true;
+  document.getElementById("includeReferee2").checked = true;
+
+  toggleReferees();
+  document.getElementById("status").innerText = "All fields cleared.";
+}
+
+function toggleReferees() {
+  const hide = document.getElementById("refereesOnRequest")?.checked;
+  document.getElementById("refereeSection").style.display = hide ? "none" : "block";
+}
+
+function validateProfile() {
+  const missing = [];
+
+  if (!document.getElementById("name").value.trim()) missing.push("name");
+  if (!document.getElementById("email").value.trim()) missing.push("email");
+  if (!document.getElementById("phone").value.trim()) missing.push("phone");
+  if (!document.getElementById("location").value.trim()) missing.push("location");
+
+  if (missing.length) {
+    return "Please add: " + missing.join(", ") + ".";
+  }
+
+  return "";
+}
+
+function saveAndContinue() {
+  const error = validateProfile();
+
+  if (error) {
+    alert(error);
+    return;
+  }
+
+  saveProfilePreset();
+  window.location.href = "jobs.html";
+}
+
+async function uploadCVFile() {
+  const fileInput = document.getElementById("cvUpload");
+  const file = fileInput.files?.[0];
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith(".docx")) {
+    alert("Please upload a .docx file for now.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = String(reader.result).split(",")[1];
+    document.getElementById("status").innerText = "Reading uploaded CV...";
+
+    try {
+      const res = await fetch("/upload-docx", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ file: base64 })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        document.getElementById("status").innerText = data.error || "CV upload failed.";
+        return;
+      }
+
+      document.getElementById("baseCv").value = data.text || "";
+      document.getElementById("cvMode").value = "Use Pasted CV";
+      document.getElementById("status").innerText = "CV uploaded and added to pasted CV mode.";
+    } catch (error) {
+      document.getElementById("status").innerText = "CV upload failed: " + error.message;
+    }
+  };
+
+  reader.readAsDataURL(file);
+}
+
+loadProfilePreset();
+updateSponsorshipFromVisa();
+toggleReferees();
+</script>
+</body>
+</html>

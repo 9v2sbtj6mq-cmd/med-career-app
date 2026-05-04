@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Med Career Evaluator</title>
+
+  <style>
+    body { font-family: Arial; margin: 30px; background: #f5f7fa; }
+    h2 { color: #2c3e50; }
+
+    textarea, input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 14px;
+      margin: 5px;
+      background: #2c7be5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .section {
+      background: white;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .job-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: white;
+    }
+
+    .job-title {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .badge-row {
+      margin: 8px 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: #eef3f8;
+      margin-right: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .badge-green { background: #e6f4ea; color: #137333; }
+    .badge-yellow { background: #fff8e1; color: #8a5a00; }
+    .badge-red { background: #fdecea; color: #b3261e; }
+    .badge-blue { background: #e8f0fe; color: #174ea6; }
+
+    .job-card.best { border-left: 6px solid #28a745; }
+    .job-card.medium { border-left: 6px solid #f0ad4e; }
+    .job-card.low { border-left: 6px solid #d9534f; }
+
+    pre {
+      white-space: pre-wrap;
+      background: #fafafa;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Med Career Evaluator</h2>
+
+<div class="section">
+  <h3>Search Jobs</h3>
+
+  <label><strong>Job level</strong></label>
+  <select id="jobLevel">
+    <option>Intern</option>
+    <option selected>RMO</option>
+    <option>PHO</option>
+  </select>
+
+  <label><strong>Location</strong></label>
+  <select id="stateFilter">
+    <option selected>All states</option>
+    <option>Queensland</option>
+    <option>New South Wales</option>
+    <option>Victoria</option>
+    <option>South Australia</option>
+    <option>Western Australia</option>
+    <option>Tasmania</option>
+    <option>Northern Territory</option>
+    <option>Australian Capital Territory</option>
+  </select>
+
+  <label style="display: flex; align-items: center; gap: 8px; width: fit-content;">
+    <input type="checkbox" id="sponsorshipOnly" style="width: auto; margin: 0;">
+    <strong>Only show sponsoring / IMG-friendly jobs</strong>
+  </label>
+
+  <textarea id="searchQuery" placeholder="Optional: emergency, ICU, medicine, surgery"></textarea>
+
+  <button onclick="autoSearchJobs()">Auto Search Jobs</button>
+  <button onclick="scoreJobs()">Score Jobs</button>
+
+  <div style="margin-top: 10px;">
+    <button onclick="searchStateFeed('All states')">All States Feed</button>
+    <button onclick="searchStateFeed('Queensland')">QLD Feed</button>
+    <button onclick="searchStateFeed('New South Wales')">NSW Feed</button>
+    <button onclick="searchStateFeed('Victoria')">VIC Feed</button>
+    <button onclick="searchStateFeed('South Australia')">SA Feed</button>
+    <button onclick="searchStateFeed('Western Australia')">WA Feed</button>
+  </div>
+
+  <pre id="status">Results will appear here...</pre>
+  <div id="jobCards"></div>
+</div>
+
+<div class="section">
+  <h3>Saved Jobs Dashboard</h3>
+  <button onclick="renderSavedJobs()">Refresh</button>
+  <button onclick="scoreSavedJobs()">Score Saved Jobs with AI</button>
+  <button onclick="clearSavedJobs()">Clear Saved Jobs</button>
+
+  <label><strong>Filter saved jobs</strong></label>
+  <select id="savedStatusFilter" onchange="renderSavedJobs()">
+    <option>All</option>
+    <option>Interested</option>
+    <option>Applied</option>
+    <option>Waiting response</option>
+    <option>Interview</option>
+    <option>Offer</option>
+    <option>Rejected</option>
+  </select>
+
+  <div id="savedJobs"></div>
+  <h4>Rejected / skipped jobs</h4>
+  <button onclick="renderRejectedJobs()">Show rejected jobs</button>
+  <button onclick="clearRejectedJobs()">Clear rejected jobs</button>
+  <div id="rejectedJobs"></div>
+</div>
+
+<div class="section">
+  <h3>Eligibility</h3>
+
+  <select id="visa">
+    <option>Requires sponsorship</option>
+    <option>Have working rights</option>
+    <option>Citizen</option>
+  </select>
+
+  <select id="ahpra">
+    <option>Eligible for limited registration</option>
+    <option>Provisional registration</option>
+    <option>Currently limited/provisional</option>
+    <option>General registration</option>
+  </select>
+</div>
+
+<div class="section">
+  <h3>Job Description</h3>
+
+  <label><strong>Upload job description Word file</strong></label>
+  <p style="margin-top: 0; color: #555;">Upload a .docx job description file, or paste the job description manually below.</p>
+  <input type="file" id="fileInput" accept=".docx,.doc">
+  <button onclick="uploadWordFile()">Upload Job Description File</button>
+
+  <label><strong>Or paste job description here</strong></label>
+  <textarea id="job" rows="8" placeholder="Paste job description here or upload a Word file"></textarea>
+
+  <button onclick="evaluateJob()">Final Evaluate</button>
+</div>
+
+<pre id="result"></pre>
+
+<div class="section">
+  <h3>Profile</h3>
+
+  <button onclick="saveProfilePreset()">Save Profile Preset</button>
+  <button onclick="loadProfilePreset()">Load Profile Preset</button>
+  <button onclick="clearProfilePreset()">Clear Saved Preset</button>
+  <button onclick="clearAllFields()">Clear All Fields</button>
+
+  <label><strong>CV Mode</strong></label>
+  <select id="cvMode">
+    <option>Use Structured Template</option>
+    <option>Use Pasted CV</option>
+  </select>
+
+  <textarea id="baseCv" placeholder="Paste full existing CV here if using pasted CV mode"></textarea>
+
+  <textarea id="cvSummary" placeholder="Professional summary"></textarea>
+  <textarea id="cvWorkHistory" placeholder="Work history / experience"></textarea>
+  <textarea id="cvClinicalSkills" placeholder="Clinical skills"></textarea>
+  <textarea id="cvCourses" placeholder="Courses / certifications"></textarea>
+  <textarea id="cvAudits" placeholder="Audits / research / publications"></textarea>
+  <textarea id="cvReferees" placeholder="General referee notes"></textarea>
+
+  <label style="display:flex; align-items:center; gap:8px; width: fit-content;">
+    <input type="checkbox" id="refereesOnRequest" style="width:auto; margin:0;" onchange="toggleReferees()">
+    Referees available on request
+  </label>
+
+  <label><strong>Referee selector</strong></label>
+
+  <div class="job-card">
+    <h4>Referee 1</h4>
+    <input id="referee1Name" placeholder="Name">
+    <input id="referee1Email" placeholder="Email">
+    <input id="referee1Phone" placeholder="Phone">
+    <input id="referee1Department" placeholder="Department / Position">
+    <input id="referee1Hospital" placeholder="Hospital / Health Service">
+    <label style="display: flex; align-items: center; gap: 8px; width: fit-content;"><input type="checkbox" id="includeReferee1" checked style="width: auto; margin: 0;"> Include Referee 1</label>
+  </div>
+
+  <div class="job-card">
+    <h4>Referee 2</h4>
+    <input id="referee2Name" placeholder="Name">
+    <input id="referee2Email" placeholder="Email">
+    <input id="referee2Phone" placeholder="Phone">
+    <input id="referee2Department" placeholder="Department / Position">
+    <input id="referee2Hospital" placeholder="Hospital / Health Service">
+    <label style="display: flex; align-items: center; gap: 8px; width: fit-content;"><input type="checkbox" id="includeReferee2" checked style="width: auto; margin: 0;"> Include Referee 2</label>
+  </div>
+
+  <div class="job-card">
+    <h4>Referee 3</h4>
+    <input id="referee3Name" placeholder="Name">
+    <input id="referee3Email" placeholder="Email">
+    <input id="referee3Phone" placeholder="Phone">
+    <input id="referee3Department" placeholder="Department / Position">
+    <input id="referee3Hospital" placeholder="Hospital / Health Service">
+    <label style="display: flex; align-items: center; gap: 8px; width: fit-content;"><input type="checkbox" id="includeReferee3" style="width: auto; margin: 0;"> Include Referee 3</label>
+  </div>
+
+  <label><strong>Upload CV Word document</strong></label>
+  <p style="margin-top: 0; color: #555;">Upload your existing .docx CV to auto-fill pasted CV mode.</p>
+  <input type="file" id="cvUpload" accept=".docx" onchange="uploadCVFile()">
+
+  <input id="name" placeholder="Name">
+  <input id="email" placeholder="Email">
+  <input id="phone" placeholder="Phone">
+  <input id="location" placeholder="Suburb / State">
+  <input id="linkedin" placeholder="LinkedIn (optional)">
+  <textarea id="education" placeholder="Education"></textarea>
+  <textarea id="experience" placeholder="Experience"></textarea>
+  <textarea id="skills" placeholder="Skills"></textarea>
+</div>
+
+<div class="section">
+  <h3>Documents</h3>
+
+  <button onclick="extractJobCriteria()">View Job Criteria</button>
+  <button onclick="generateCV()">Generate CV</button>
+  <button onclick="reviewCVMatch()">Review CV Match</button>
+  <button onclick="improveCV()">Improve CV</button>
+  <button onclick="downloadCV()">Download CV Word</button>
+  <button onclick="generateCoverLetter()">Generate Cover Letter</button>
+  <button onclick="downloadCoverLetter()">Download Cover Letter Word</button>
+  <button onclick="generatePack()">Application Pack</button>
+  <button onclick="downloadApplicationPack()">Download Application Pack Word</button>
+</div>
+
+<script>
+let currentJobs = [];
+let rejectedJobs = [];
+
+// 🔥 FIXED QUERY LOGIC
+function getSearchQuery() {
+  const level = document.getElementById("jobLevel").value;
+  const extra = document.getElementById("searchQuery").value.trim();
+  const state = document.getElementById("stateFilter").value;
+  const sponsorshipOnly = document.getElementById("sponsorshipOnly").checked;
+
+  let base = "";
+
+  if (level === "Intern") {
+    base = "medical intern jobs Australia hospital doctor intern";
+  } else if (level === "RMO") {
+    base = "resident medical officer RMO jobs Australia hospital doctor hospital medical officer HMO junior medical officer JMO";
+  } else {
+    base = "principal house officer PHO registrar jobs Australia hospital doctor unaccredited registrar";
+  }
+
+  let locationText = "";
+
+  if (state !== "All states") {
+    locationText = state;
+  }
+
+  let sponsorshipText = "";
+
+  if (sponsorshipOnly) {
+    sponsorshipText = "visa sponsorship sponsor 482 IMG international medical graduate limited registration supervision";
+  }
+
+  return [base, locationText, sponsorshipText, extra]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function searchStateFeed(state) {
+  document.getElementById("stateFilter").value = state;
+  autoSearchJobs();
+}
+
+function jobMatchesSponsorship(job) {
+  const text = `${job.title || ""} ${job.snippet || ""}`.toLowerCase();
+
+  return (
+    text.includes("sponsor") ||
+    text.includes("sponsorship") ||
+    text.includes("482") ||
+    text.includes("visa") ||
+    text.includes("img") ||
+    text.includes("international medical graduate") ||
+    text.includes("limited registration") ||
+    text.includes("supervision") ||
+    text.includes("area of need")
+  );
+}
+
+
+function buildRefereeText(number) {
+  const name = document.getElementById(`referee${number}Name`)?.value.trim() || "";
+  const email = document.getElementById(`referee${number}Email`)?.value.trim() || "";
+  const phone = document.getElementById(`referee${number}Phone`)?.value.trim() || "";
+  const department = document.getElementById(`referee${number}Department`)?.value.trim() || "";
+  const hospital = document.getElementById(`referee${number}Hospital`)?.value.trim() || "";
+
+  if (!name && !email && !phone && !department && !hospital) return "";
+
+  return [
+    `Referee ${number}`,
+    name ? `Name: ${name}` : "Name: [Add referee name]",
+    email ? `Email: ${email}` : "Email: [Add email]",
+    phone ? `Phone: ${phone}` : "Phone: [Add phone]",
+    department ? `Department / Position: ${department}` : "Department / Position: [Add department / position]",
+    hospital ? `Hospital / Health Service: ${hospital}` : "Hospital / Health Service: [Add hospital]"
+  ].join("\n");
+}
+
+function getProfile() {
+  const cvMode = document.getElementById("cvMode")?.value || "Use Structured Template";
+  const selectedReferees = [
+    document.getElementById("includeReferee1")?.checked ? buildRefereeText(1) : "",
+    document.getElementById("includeReferee2")?.checked ? buildRefereeText(2) : "",
+    document.getElementById("includeReferee3")?.checked ? buildRefereeText(3) : ""
+  ].filter(Boolean).join("\n\n");
+
+  return `
+Visa: ${document.getElementById("visa").value}
+AHPRA: ${document.getElementById("ahpra").value}
+Level: ${document.getElementById("jobLevel").value}
+
+Name: ${document.getElementById("name").value}
+Email: ${document.getElementById("email")?.value || ""}
+Phone: ${document.getElementById("phone")?.value || ""}
+Location: ${document.getElementById("location")?.value || ""}
+LinkedIn: ${document.getElementById("linkedin")?.value || ""}
+
+CV Mode: ${cvMode}
+
+Existing CV:
+${document.getElementById("baseCv")?.value || ""}
+
+Structured CV Template:
+
+Education:
+${document.getElementById("education").value}
+
+Professional Summary:
+${document.getElementById("cvSummary")?.value || ""}
+
+Experience:
+${document.getElementById("experience").value}
+${document.getElementById("cvWorkHistory")?.value || ""}
+
+Skills:
+${document.getElementById("skills").value}
+${document.getElementById("cvClinicalSkills")?.value || ""}
+
+Courses / Certifications:
+${document.getElementById("cvCourses")?.value || ""}
+
+Audits / Research / Publications:
+${document.getElementById("cvAudits")?.value || ""}
+
+Referees:
+${document.getElementById("cvReferees")?.value || ""}
+
+Selected Referees for this application:
+${document.getElementById("refereesOnRequest")?.checked
+  ? "Referees available on request"
+  : (selectedReferees || "No referees selected or supplied.")}
+`;
+}
+
+function saveProfilePreset() {
+  const profile = {
+    visa: document.getElementById("visa").value,
+    ahpra: document.getElementById("ahpra").value,
+    level: document.getElementById("jobLevel").value,
+    name: document.getElementById("name").value,
+    email: document.getElementById("email").value,
+    phone: document.getElementById("phone").value,
+    location: document.getElementById("location").value,
+    linkedin: document.getElementById("linkedin").value,
+    refereesOnRequest: document.getElementById("refereesOnRequest").checked,
+    education: document.getElementById("education").value,
+    experience: document.getElementById("experience").value,
+    skills: document.getElementById("skills").value,
+    cvMode: document.getElementById("cvMode").value,
+    baseCv: document.getElementById("baseCv").value,
+    cvSummary: document.getElementById("cvSummary").value,
+    cvWorkHistory: document.getElementById("cvWorkHistory").value,
+    cvClinicalSkills: document.getElementById("cvClinicalSkills").value,
+    cvCourses: document.getElementById("cvCourses").value,
+    cvAudits: document.getElementById("cvAudits").value,
+    cvReferees: document.getElementById("cvReferees").value,
+    referee1Name: document.getElementById("referee1Name").value,
+    referee1Email: document.getElementById("referee1Email").value,
+    referee1Phone: document.getElementById("referee1Phone").value,
+    referee1Department: document.getElementById("referee1Department").value,
+    referee1Hospital: document.getElementById("referee1Hospital").value,
+    referee2Name: document.getElementById("referee2Name").value,
+    referee2Email: document.getElementById("referee2Email").value,
+    referee2Phone: document.getElementById("referee2Phone").value,
+    referee2Department: document.getElementById("referee2Department").value,
+    referee2Hospital: document.getElementById("referee2Hospital").value,
+    referee3Name: document.getElementById("referee3Name").value,
+    referee3Email: document.getElementById("referee3Email").value,
+    referee3Phone: document.getElementById("referee3Phone").value,
+    referee3Department: document.getElementById("referee3Department").value,
+    referee3Hospital: document.getElementById("referee3Hospital").value,
+    includeReferee1: document.getElementById("includeReferee1").checked,
+    includeReferee2: document.getElementById("includeReferee2").checked,
+    includeReferee3: document.getElementById("includeReferee3").checked,
+  };
+
+  localStorage.setItem("profilePreset", JSON.stringify(profile));
+  alert("Profile preset saved.");
+}
+
+function loadProfilePreset() {
+  const profile = JSON.parse(localStorage.getItem("profilePreset") || "null");
+
+  if (!profile) {
+    alert("No saved profile preset found.");
+    return;
+  }
+
+  document.getElementById("visa").value = profile.visa || document.getElementById("visa").value;
+  document.getElementById("ahpra").value = profile.ahpra || document.getElementById("ahpra").value;
+  document.getElementById("jobLevel").value = profile.level || document.getElementById("jobLevel").value;
+  document.getElementById("name").value = profile.name || "";
+  document.getElementById("email").value = profile.email || "";
+  document.getElementById("phone").value = profile.phone || "";
+  document.getElementById("location").value = profile.location || "";
+  document.getElementById("linkedin").value = profile.linkedin || "";
+  document.getElementById("refereesOnRequest").checked = Boolean(profile.refereesOnRequest);
+  document.getElementById("education").value = profile.education || "";
+  document.getElementById("experience").value = profile.experience || "";
+  document.getElementById("skills").value = profile.skills || "";
+  document.getElementById("cvMode").value = profile.cvMode || "Use Structured Template";
+  document.getElementById("baseCv").value = profile.baseCv || "";
+  document.getElementById("cvSummary").value = profile.cvSummary || "";
+  document.getElementById("cvWorkHistory").value = profile.cvWorkHistory || "";
+  document.getElementById("cvClinicalSkills").value = profile.cvClinicalSkills || "";
+  document.getElementById("cvCourses").value = profile.cvCourses || "";
+  document.getElementById("cvAudits").value = profile.cvAudits || "";
+  document.getElementById("cvReferees").value = profile.cvReferees || "";
+  document.getElementById("referee1Name").value = profile.referee1Name || "";
+  document.getElementById("referee1Email").value = profile.referee1Email || "";
+  document.getElementById("referee1Phone").value = profile.referee1Phone || "";
+  document.getElementById("referee1Department").value = profile.referee1Department || "";
+  document.getElementById("referee1Hospital").value = profile.referee1Hospital || "";
+  document.getElementById("referee2Name").value = profile.referee2Name || "";
+  document.getElementById("referee2Email").value = profile.referee2Email || "";
+  document.getElementById("referee2Phone").value = profile.referee2Phone || "";
+  document.getElementById("referee2Department").value = profile.referee2Department || "";
+  document.getElementById("referee2Hospital").value = profile.referee2Hospital || "";
+  document.getElementById("referee3Name").value = profile.referee3Name || "";
+  document.getElementById("referee3Email").value = profile.referee3Email || "";
+  document.getElementById("referee3Phone").value = profile.referee3Phone || "";
+  document.getElementById("referee3Department").value = profile.referee3Department || "";
+  document.getElementById("referee3Hospital").value = profile.referee3Hospital || "";
+  document.getElementById("includeReferee1").checked = profile.includeReferee1 !== false;
+  document.getElementById("includeReferee2").checked = profile.includeReferee2 !== false;
+  document.getElementById("includeReferee3").checked = Boolean(profile.includeReferee3);
+  toggleReferees();
+}
+
+function clearProfilePreset() {
+  localStorage.removeItem("profilePreset");
+  alert("Profile preset cleared.");
+}
+
+function toggleReferees() {
+  const hide = document.getElementById("refereesOnRequest")?.checked;
+
+  document.querySelectorAll(".job-card").forEach(card => {
+    const heading = card.querySelector("h4")?.innerText || "";
+    if (heading.includes("Referee")) {
+      card.style.display = hide ? "none" : "block";
+    }
+  });
+}
+
+function clearAllFields() {
+  document.querySelectorAll("input, textarea").forEach(el => {
+    if (el.type === "checkbox") {
+      el.checked = false;
+    } else {
+      el.value = "";
+    }
+  });
+
+  toggleReferees();
+  alert("All fields cleared.");
+}
+
+function getScoreNumber(aiScore) {
+  const match = String(aiScore || "").match(/Score:\s*([0-5](?:\.\d+)?)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function getCardClass(job) {
+  const aiScore = getScoreNumber(job.aiScore);
+
+  if (aiScore !== null) {
+    if (aiScore >= 4) return "best";
+    if (aiScore >= 2.5) return "medium";
+    return "low";
+  }
+
+  const instantScore = Number(job.instantScore || 0);
+  if (instantScore >= 55) return "best";
+  if (instantScore >= 30) return "medium";
+  return "low";
+}
+
+function getReadinessBadgeClass(readiness) {
+  const text = String(readiness || "").toLowerCase();
+
+  if (text.includes("high") || text.includes("ready")) return "badge-green";
+  if (text.includes("worth") || text.includes("review")) return "badge-yellow";
+  if (text.includes("not suitable")) return "badge-red";
+  return "badge-blue";
+}
+
+function getAiBadge(job) {
+  const score = getScoreNumber(job.aiScore);
+  const provider = job.scoringProvider ? String(job.scoringProvider).toUpperCase() : "AI";
+
+  if (score === null) return "";
+  if (score >= 4) return `<span class="badge badge-green">🔥 Best ${provider} match ${score}/5</span>`;
+  if (score >= 2.5) return `<span class="badge badge-yellow">⚠️ Moderate ${provider} match ${score}/5</span>`;
+  return `<span class="badge badge-red">❌ Low ${provider} match ${score}/5</span>`;
+}
+
+function getInstantBadges(job) {
+  const instantScore = job.instantScore !== undefined ? job.instantScore : "Not ranked";
+  const readiness = job.instantReadiness || "Needs manual check";
+  const readinessClass = getReadinessBadgeClass(readiness);
+  const descriptionSource = job.descriptionSource ? `<span class="badge badge-blue">JD: ${job.descriptionSource}</span>` : "";
+
+  return `
+    <div class="badge-row">
+      ${getAiBadge(job)}
+      <span class="badge badge-blue">Instant rank: ${instantScore}</span>
+      <span class="badge ${readinessClass}">${readiness}</span>
+      ${descriptionSource}
+      ${getClosingBadge(job)}
+    </div>
+  `;
+}
+
+function buildJobText(job) {
+  return `
+Title: ${job.title}
+Link: ${job.link}
+Instant Rank: ${job.instantScore || ""}
+Readiness: ${job.instantReadiness || ""}
+
+Summary:
+${job.snippet || ""}
+
+AI Score:
+${job.aiScore || ""}
+
+Full Description:
+${job.fullDescription || ""}
+`;
+}
+
+function getClosingBadge(job) {
+  if (!job.closingStatus) return "";
+
+  if (job.closingStatus === "Closed") {
+    return `<span class="badge badge-red">Closed${job.closingDate ? ": " + job.closingDate : ""}</span>`;
+  }
+
+  if (job.closingStatus === "Closing soon") {
+    return `<span class="badge badge-yellow">Closing soon${job.closingDate ? ": " + job.closingDate : ""}</span>`;
+  }
+
+  if (job.closingStatus === "Open") {
+    return `<span class="badge badge-green">Open${job.closingDate ? ": " + job.closingDate : ""}</span>`;
+  }
+
+  return `<span class="badge badge-blue">${job.closingStatus}${job.closingDate ? ": " + job.closingDate : ""}</span>`;
+}
+
+function renderJobs(jobs) {
+  const box = document.getElementById("jobCards");
+  box.innerHTML = "";
+
+  if (!jobs || jobs.length === 0) {
+    box.innerHTML = `<div class="job-card">No jobs to display.</div>`;
+    return;
+  }
+
+  jobs.forEach((job, i) => {
+    const div = document.createElement("div");
+    div.className = `job-card ${getCardClass(job)}`;
+
+    div.innerHTML = `
+      <div class="job-title">${i + 1}. ${job.title}</div>
+      ${getInstantBadges(job)}
+      ${job.hardRejectionReason ? `<pre>${job.hardRejectionReason}</pre>` : ""}
+      ${job.aiScore ? `<pre>${job.aiScore}</pre>` : ""}
+      <p>${job.snippet || ""}</p>
+      <a href="${job.link}" target="_blank">Open</a><br>
+      <button onclick="useJob(${i})">Use</button>
+      <button onclick="saveJob(${i}, 'Interested')">Save Interested</button>
+      <button onclick="saveJob(${i}, 'Applied')">Mark Applied</button>
+    `;
+
+    box.appendChild(div);
+  });
+}
+
+async function autoSearchJobs() {
+  const status = document.getElementById("status");
+  status.innerText = "Searching...";
+
+  const res = await fetch("/auto-search", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({query: getSearchQuery()})
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    status.innerText = data.error;
+    return;
+  }
+
+  currentJobs = data.results || [];
+
+  if (document.getElementById("sponsorshipOnly").checked) {
+    currentJobs = currentJobs.filter(jobMatchesSponsorship);
+  }
+
+  const state = document.getElementById("stateFilter").value;
+  const sponsorshipText = document.getElementById("sponsorshipOnly").checked ? " matching sponsorship/IMG-friendly terms" : "";
+  status.innerText = "Found " + currentJobs.length + " jobs" + sponsorshipText + " for " + state;
+
+  renderJobs(currentJobs);
+}
+
+
+async function scoreJobs() {
+  if (!currentJobs || currentJobs.length === 0) {
+    alert("Search jobs first.");
+    return;
+  }
+  const status = document.getElementById("status");
+  status.innerText = "Filtering, scraping top jobs, and scoring with AI...";
+
+  const res = await fetch("/score-jobs", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      jobs: currentJobs,
+      quickProfile: getProfile()
+    })
+  });
+
+  const data = await res.json();
+
+  if (!res.ok || data.error) {
+    status.innerText = data.error || "Score failed.";
+    return;
+  }
+
+  currentJobs = data.results || [];
+  rejectedJobs = data.rejected || [];
+  localStorage.setItem("rejectedJobs", JSON.stringify(rejectedJobs));
+  status.innerText = "Scored " + currentJobs.length + " jobs. Skipped " + rejectedJobs.length + " unsuitable jobs.";
+  renderJobs(currentJobs);
+  renderRejectedJobs();
+}
+
+async function scoreSavedJobs() {
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const status = document.getElementById("status");
+
+  if (!saved || saved.length === 0) {
+    alert("Save jobs to the dashboard first.");
+    return;
+  }
+
+  const jobsToScore = saved.slice(0, 20);
+  status.innerText = "Filtering, scraping top saved jobs, and scoring with AI...";
+
+  try {
+    const res = await fetch("/score-jobs", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        jobs: jobsToScore,
+        quickProfile: getProfile()
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      status.innerText = data.error || "Saved job scoring failed.";
+      return;
+    }
+
+    const scoredJobs = data.results || [];
+    const remainingJobs = saved.slice(20);
+    const updatedSavedJobs = [...scoredJobs, ...remainingJobs];
+
+    localStorage.setItem("jobs", JSON.stringify(updatedSavedJobs));
+    const skippedSaved = data.rejected || [];
+    rejectedJobs = JSON.parse(localStorage.getItem("rejectedJobs") || "[]").concat(skippedSaved);
+    localStorage.setItem("rejectedJobs", JSON.stringify(rejectedJobs));
+    status.innerText = "Scored " + scoredJobs.length + " saved jobs. Skipped " + skippedSaved.length + " unsuitable saved jobs.";
+    renderSavedJobs();
+    renderRejectedJobs();
+  } catch (error) {
+    status.innerText = "Saved job scoring failed: " + error.message;
+  }
+}
+
+function useJob(i) {
+  document.getElementById("job").value = buildJobText(currentJobs[i]);
+}
+
+function saveJob(i, statusValue = "Interested") {
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+
+  if (saved.some(job => job.link === currentJobs[i].link)) {
+    alert("This job is already saved.");
+    return;
+  }
+
+  saved.push({
+    ...currentJobs[i],
+    status: statusValue,
+    notes: "",
+    appliedDate: "",
+    followUpDate: "",
+    interviewDate: "",
+    closingDate: currentJobs[i].closingDate || "",
+    savedAt: new Date().toLocaleString()
+  });
+
+  localStorage.setItem("jobs", JSON.stringify(saved));
+  renderSavedJobs();
+}
+
+function renderSavedJobs() {
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const box = document.getElementById("savedJobs");
+  const filter = document.getElementById("savedStatusFilter") ? document.getElementById("savedStatusFilter").value : "All";
+
+  if (filter && filter !== "All") {
+    saved = saved.filter(job => job.status === filter);
+  }
+
+  box.innerHTML = "";
+
+  if (!saved.length) {
+    box.innerHTML = `<p>No saved jobs yet.</p>`;
+    return;
+  }
+
+  saved.forEach((j, i) => {
+    const div = document.createElement("div");
+    div.className = `job-card ${getCardClass(j)}`;
+
+    div.innerHTML = `
+      <div class="job-title">${i + 1}. ${j.title}</div>
+      ${getInstantBadges(j)}
+
+      <label><strong>Status</strong></label>
+      <select onchange="updateSavedStatus(${i}, this.value)">
+        <option ${j.status === "Interested" ? "selected" : ""}>Interested</option>
+        <option ${j.status === "Applied" ? "selected" : ""}>Applied</option>
+        <option ${j.status === "Waiting response" ? "selected" : ""}>Waiting response</option>
+        <option ${j.status === "Interview" ? "selected" : ""}>Interview</option>
+        <option ${j.status === "Offer" ? "selected" : ""}>Offer</option>
+        <option ${j.status === "Rejected" ? "selected" : ""}>Rejected</option>
+      </select>
+
+      <label><strong>Notes</strong></label>
+      <textarea rows="3" placeholder="Notes" onchange="updateSavedNotes(${i}, this.value)">${j.notes || ""}</textarea>
+
+      <label><strong>Applied date</strong></label>
+      <input type="date" value="${j.appliedDate || ""}" onchange="updateSavedField(${i}, 'appliedDate', this.value)">
+
+      <label><strong>Follow-up date</strong></label>
+      <input type="date" value="${j.followUpDate || ""}" onchange="updateSavedField(${i}, 'followUpDate', this.value)">
+
+      <label><strong>Interview date</strong></label>
+      <input type="date" value="${j.interviewDate || ""}" onchange="updateSavedField(${i}, 'interviewDate', this.value)">
+
+      <label><strong>Closing date</strong></label>
+      <input type="text" value="${j.closingDate || ""}" onchange="updateSavedField(${i}, 'closingDate', this.value)">
+
+      <a href="${j.link}" target="_blank">Open</a><br>
+      <button onclick="useSaved(${i})">Use</button>
+      <button onclick="generatePackForSavedJob(${i})">Application Pack</button>
+      <button onclick="downloadCVForSavedJob(${i})">Download CV</button>
+      <button onclick="downloadCoverLetterForSavedJob(${i})">Download Cover Letter</button>
+      <button onclick="downloadApplicationPackForSavedJob(${i})">Download Pack</button>
+      <button onclick="removeSavedJob(${i})">Remove</button>
+    `;
+
+    box.appendChild(div);
+  });
+}
+
+function renderRejectedJobs() {
+  const box = document.getElementById("rejectedJobs");
+  if (!box) return;
+
+  const rejected = JSON.parse(localStorage.getItem("rejectedJobs") || "[]");
+  box.innerHTML = "";
+
+  if (!rejected.length) {
+    box.innerHTML = `<p>No rejected jobs recorded yet.</p>`;
+    return;
+  }
+
+  rejected.slice(0, 50).forEach((job, i) => {
+    const div = document.createElement("div");
+    div.className = "job-card low";
+    div.innerHTML = `
+      <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
+      <pre>${job.hardRejectionReason || job.aiScore || "Skipped as not suitable."}</pre>
+      <p>${job.snippet || ""}</p>
+      ${job.link ? `<a href="${job.link}" target="_blank">Open</a>` : ""}
+    `;
+    box.appendChild(div);
+  });
+}
+
+function clearRejectedJobs() {
+  localStorage.removeItem("rejectedJobs");
+  rejectedJobs = [];
+  renderRejectedJobs();
+}
+
+function clearSavedJobs() {
+  if (!confirm("Clear all saved jobs?")) return;
+  localStorage.removeItem("jobs");
+  renderSavedJobs();
+}
+
+function updateSavedStatus(index, value) {
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  saved[index].status = value;
+  localStorage.setItem("jobs", JSON.stringify(saved));
+}
+
+function updateSavedNotes(index, value) {
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  saved[index].notes = value;
+  localStorage.setItem("jobs", JSON.stringify(saved));
+}
+
+function updateSavedField(index, field, value) {
+  const target = getSavedJobByRenderedIndex(index);
+  if (!target) return;
+
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const originalIndex = saved.findIndex(job => job.link === target.link);
+
+  if (originalIndex === -1) return;
+
+  saved[originalIndex][field] = value;
+  localStorage.setItem("jobs", JSON.stringify(saved));
+}
+
+function removeSavedJob(index) {
+  const filter = document.getElementById("savedStatusFilter") ? document.getElementById("savedStatusFilter").value : "All";
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+
+  if (filter && filter !== "All") {
+    const visibleJobs = saved.filter(job => job.status === filter);
+    const target = visibleJobs[index];
+    if (!target) return;
+    saved = saved.filter(job => job.link !== target.link);
+  } else {
+    saved.splice(index, 1);
+  }
+
+  localStorage.setItem("jobs", JSON.stringify(saved));
+  renderSavedJobs();
+}
+
+
+function getSavedJobByRenderedIndex(renderedIndex) {
+  const filter = document.getElementById("savedStatusFilter") ? document.getElementById("savedStatusFilter").value : "All";
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+
+  if (filter && filter !== "All") {
+    saved = saved.filter(job => job.status === filter);
+  }
+
+  return saved[renderedIndex];
+}
+
+async function generatePackForSavedJob(i) {
+  const job = getSavedJobByRenderedIndex(i);
+  if (!job) return;
+  document.getElementById("job").value = buildJobText(job);
+  await generatePack();
+}
+
+async function downloadCVForSavedJob(i) {
+  const job = getSavedJobByRenderedIndex(i);
+  if (!job) return;
+
+  const res = await fetch("/cv-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      profile: getProfile(),
+      job: buildJobText(job)
+    })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = getFilenameFromResponse(res, "Matched_CV.docx");
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
+
+async function downloadCoverLetterForSavedJob(i) {
+  const job = getSavedJobByRenderedIndex(i);
+  if (!job) return;
+
+  const res = await fetch("/cover-letter-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      profile: getProfile(),
+      job: buildJobText(job)
+    })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  const profile = getProfile();
+  const nameMatch = profile.match(/Name:\s*(.*)/);
+  const levelMatch = profile.match(/Level:\s*(.*)/);
+  const safeName = (nameMatch?.[1] || "Medical")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_+|_+$/g, "") || "Medical";
+  const safeLevel = (levelMatch?.[1] || "Cover")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_+|_+$/g, "") || "Cover";
+
+  a.download = `${safeName}_${safeLevel}_Cover_Letter.docx`;
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
+
+async function downloadApplicationPackForSavedJob(i) {
+  const job = getSavedJobByRenderedIndex(i);
+  if (!job) return;
+
+  const res = await fetch("/application-pack-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      profile: getProfile(),
+      job: buildJobText(job)
+    })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Application_Pack.docx";
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
+
+function useSaved(i) {
+  const job = getSavedJobByRenderedIndex(i);
+  if (!job) return;
+  document.getElementById("job").value = buildJobText(job);
+}
+
+async function evaluateJob() {
+  const resultBox = document.getElementById("result");
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please paste or upload a job description first.");
+    return;
+  }
+
+  resultBox.innerText = "Evaluating job with Gemini AI...";
+
+  try {
+    const res = await fetch("/evaluate", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: jobText
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      resultBox.innerText = data.error || "Evaluation failed.";
+      return;
+    }
+
+    resultBox.innerText = data.result || "No evaluation returned.";
+  } catch (error) {
+    resultBox.innerText = "Evaluation failed: " + error.message;
+  }
+}
+
+
+async function generateCV() {
+  const resultBox = document.getElementById("result");
+  resultBox.innerText = "Generating CV with Gemini AI...";
+
+  try {
+    const res = await fetch("/cv", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: document.getElementById("job").value
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      resultBox.innerText = data.error || "CV generation failed.";
+      return;
+    }
+
+    resultBox.innerText = data.result || "No CV returned.";
+  } catch (error) {
+    resultBox.innerText = "CV generation failed: " + error.message;
+  }
+}
+
+async function reviewCVMatch() {
+  const resultBox = document.getElementById("result");
+  const jobText = document.getElementById("job").value.trim();
+  const currentOutput = resultBox.innerText.trim();
+  const pastedCv = document.getElementById("baseCv")?.value.trim() || "";
+
+  if (!jobText) {
+    alert("Please paste, upload, or select a job first.");
+    return;
+  }
+
+  const cvText = currentOutput && !currentOutput.toLowerCase().includes("generating")
+    ? currentOutput
+    : pastedCv;
+
+  if (!cvText) {
+    alert("Generate a CV first or paste a full CV in the Profile section.");
+    return;
+  }
+
+  resultBox.innerText = "Reviewing CV match against this job...";
+
+  try {
+    const res = await fetch("/cv-review", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: jobText,
+        cvText
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      resultBox.innerText = data.error || "CV review failed.";
+      return;
+    }
+
+    resultBox.innerText = data.result || "No CV review returned.";
+  } catch (error) {
+    resultBox.innerText = "CV review failed: " + error.message;
+  }
+}
+
+async function extractJobCriteria() {
+  const resultBox = document.getElementById("result");
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please paste, upload, or select a job first.");
+    return;
+  }
+
+  resultBox.innerText = "Extracting job criteria...";
+
+  try {
+    const res = await fetch("/job-criteria", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: jobText
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      resultBox.innerText = data.error || "Criteria extraction failed.";
+      return;
+    }
+
+    resultBox.innerText = data.result || "No criteria returned.";
+  } catch (error) {
+    resultBox.innerText = "Criteria extraction failed: " + error.message;
+  }
+}
+
+async function improveCV() {
+  const resultBox = document.getElementById("result");
+  const jobText = document.getElementById("job").value.trim();
+  const currentOutput = resultBox.innerText.trim();
+  const pastedCv = document.getElementById("baseCv")?.value.trim() || "";
+
+  if (!jobText) {
+    alert("Please paste, upload, or select a job first.");
+    return;
+  }
+
+  const cvText = currentOutput && !currentOutput.toLowerCase().includes("reviewing") && !currentOutput.toLowerCase().includes("generating")
+    ? currentOutput
+    : pastedCv;
+
+  if (!cvText) {
+    alert("Generate a CV first or paste/upload a CV in the Profile section.");
+    return;
+  }
+
+  resultBox.innerText = "Reviewing and improving CV for this job...";
+
+  try {
+    const reviewRes = await fetch("/cv-review", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: jobText,
+        cvText
+      })
+    });
+
+    const reviewData = await reviewRes.json();
+    if (!reviewRes.ok || reviewData.error) {
+      resultBox.innerText = reviewData.error || "CV review failed.";
+      return;
+    }
+
+    const improveRes = await fetch("/cv-improve", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: jobText,
+        cvText,
+        reviewText: reviewData.result || ""
+      })
+    });
+
+    const improveData = await improveRes.json();
+
+    if (!improveRes.ok || improveData.error) {
+      resultBox.innerText = improveData.error || "CV improvement failed.";
+      return;
+    }
+
+    resultBox.innerText = improveData.result || "No improved CV returned.";
+  } catch (error) {
+    resultBox.innerText = "CV improvement failed: " + error.message;
+  }
+}
+
+async function uploadCVFile() {
+  const fileInput = document.getElementById("cvUpload");
+  const file = fileInput.files?.[0];
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith(".docx")) {
+    alert("Please upload a .docx file for now.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = String(reader.result).split(",")[1];
+    const resultBox = document.getElementById("result");
+    resultBox.innerText = "Reading uploaded CV...";
+
+    try {
+      const res = await fetch("/upload-docx", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ file: base64 })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        resultBox.innerText = data.error || "CV upload failed.";
+        return;
+      }
+
+      document.getElementById("baseCv").value = data.text || "";
+      document.getElementById("cvMode").value = "Use Pasted CV";
+      resultBox.innerText = "CV uploaded and added to pasted CV mode.";
+    } catch (error) {
+      resultBox.innerText = "CV upload failed: " + error.message;
+    }
+  };
+
+  reader.readAsDataURL(file);
+}
+
+async function generateCoverLetter() {
+  const resultBox = document.getElementById("result");
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please paste, upload, or select a job first.");
+    return;
+  }
+
+  resultBox.innerText = "Generating cover letter with Gemini AI...";
+
+  try {
+    const res = await fetch("/cover-letter", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: jobText
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      resultBox.innerText = data.error || "Cover letter generation failed.";
+      return;
+    }
+
+    resultBox.innerText = data.result || "No cover letter returned.";
+  } catch (error) {
+    resultBox.innerText = "Cover letter generation failed: " + error.message;
+  }
+}
+
+function getFilenameFromResponse(response, fallback) {
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return match?.[1] || fallback;
+}
+
+async function downloadCV() {
+  const res = await fetch("/cv-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      profile: getProfile(),
+      job: document.getElementById("job").value
+    })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = getFilenameFromResponse(res, "CV.docx");
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
+
+async function downloadCoverLetter() {
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please paste, upload, or select a job first.");
+    return;
+  }
+
+  const res = await fetch("/cover-letter-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      profile: getProfile(),
+      job: jobText
+    })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  const profile = getProfile();
+  const nameMatch = profile.match(/Name:\s*(.*)/);
+  const levelMatch = profile.match(/Level:\s*(.*)/);
+  const safeName = (nameMatch?.[1] || "Medical")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_+|_+$/g, "") || "Medical";
+  const safeLevel = (levelMatch?.[1] || "Cover")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_+|_+$/g, "") || "Cover";
+
+  a.download = `${safeName}_${safeLevel}_Cover_Letter.docx`;
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
+
+async function downloadApplicationPack() {
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please paste, upload, or select a job first.");
+    return;
+  }
+
+  const res = await fetch("/application-pack-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      profile: getProfile(),
+      job: jobText
+    })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Application_Pack.docx";
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
+
+async function generatePack() {
+  const resultBox = document.getElementById("result");
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please paste, upload, or select a job first.");
+    return;
+  }
+
+  resultBox.innerText = "Preparing application pack with Gemini AI...";
+
+  try {
+    const res = await fetch("/application-pack", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        profile: getProfile(),
+        job: jobText
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      resultBox.innerText = data.error || "Application pack failed.";
+      return;
+    }
+
+    resultBox.innerText = data.result || "No application pack returned.";
+  } catch (error) {
+    resultBox.innerText = "Application pack failed: " + error.message;
+  }
+}
+
+// Upload Word file and extract text
+async function uploadWordFile() {
+  const file = document.getElementById("fileInput").files[0];
+
+  if (!file) {
+    alert("Please select a Word job description file first.");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = async function () {
+    const base64 = reader.result.split(",")[1];
+
+    const response = await fetch("/upload-docx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file: base64 })
+    });
+
+    const data = await response.json();
+    document.getElementById("job").value = data.text || data.error;
+  };
+
+  reader.readAsDataURL(file);
+}
+
+renderSavedJobs();
+renderRejectedJobs();
+</script>
+
+</body>
+</html>

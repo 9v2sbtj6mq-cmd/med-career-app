@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Job Search - Med Career Evaluator</title>
+
+  <style>
+    body { font-family: Arial; margin: 30px; background: #f5f7fa; }
+    h2 { color: #2c3e50; }
+
+    .section {
+      background: white;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    button {
+      padding: 10px 14px;
+      margin: 5px;
+      background: #2c7be5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .job-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: white;
+    }
+
+    .job-title {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: #eef3f8;
+      margin-right: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .best { border-left: 6px solid #28a745; }
+    .medium { border-left: 6px solid #f0ad4e; }
+    .low { border-left: 6px solid #d9534f; }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 8px;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      background: #fafafa;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Job Search & Applications</h2>
+<p><a href="index.html">← Edit Applicant Profile</a></p>
+
+<div class="section">
+  <h3>Profile Loaded</h3>
+  <pre id="profileBox">Loading profile...</pre>
+</div>
+
+<div class="section">
+  <h3>Search Jobs</h3>
+
+  <button onclick="searchJobs()">Search Jobs</button>
+  <button onclick="scoreJobs()">Score Jobs</button>
+
+  <pre id="status">Idle</pre>
+  <div id="jobCards"></div>
+</div>
+
+<div class="section">
+  <h3>Selected Job</h3>
+  <textarea id="job" rows="8" placeholder="Selected job will appear here"></textarea>
+</div>
+
+<div class="section">
+  <h3>Documents</h3>
+
+  <button onclick="generateCV()">Generate CV</button>
+  <button onclick="generateCoverLetter()">Generate Cover Letter</button>
+  <button onclick="generatePack()">Application Pack</button>
+  <button onclick="downloadCV()">Download CV Word</button>
+  <button onclick="downloadCoverLetter()">Download Cover Letter Word</button>
+  <button onclick="downloadApplicationPack()">Download Application Pack Word</button>
+
+  <pre id="result"></pre>
+</div>
+
+<script>
+let profile = {};
+let currentJobs = [];
+
+function loadProfile() {
+  const saved = JSON.parse(localStorage.getItem("applicantProfile") || "null");
+
+  if (!saved) {
+    document.getElementById("profileBox").innerText = "No profile found. Go back to Page 1 and save the applicant profile first.";
+    return;
+  }
+
+  profile = saved;
+  document.getElementById("profileBox").innerText = `
+Name: ${profile.name || ""}
+Email: ${profile.email || ""}
+Phone: ${profile.phone || ""}
+Location: ${profile.location || ""}
+
+Target Level: ${profile.jobLevel || ""}
+Preferred State: ${profile.stateFilter || "All states"}
+AHPRA: ${profile.ahpra || ""}
+Visa: ${profile.visa || ""}
+Needs Sponsorship: ${profile.needsSponsorship ? "Yes" : "No"}
+Willing to Relocate: ${profile.willingToRelocate ? "Yes" : "No"}
+
+CV Mode: ${profile.cvMode || ""}
+CV Loaded: ${profile.baseCv ? "Yes" : "No"}
+Referees: ${profile.refereesOnRequest ? "Available upon request" : "Entered manually"}
+`;
+}
+
+async function searchJobs() {
+  const status = document.getElementById("status");
+  status.innerText = "Searching jobs...";
+
+  const res = await fetch("/auto-search", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ profile })
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    status.innerText = data.error;
+    return;
+  }
+
+  currentJobs = data.results || [];
+  status.innerText = "Found " + currentJobs.length + " jobs";
+
+  renderJobs();
+}
+
+async function scoreJobs() {
+  if (!currentJobs.length) {
+    alert("Search jobs first");
+    return;
+  }
+
+  const status = document.getElementById("status");
+  status.innerText = "Scoring jobs...";
+
+  const res = await fetch("/score-jobs", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ jobs: currentJobs, profile })
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    status.innerText = data.error;
+    return;
+  }
+
+  currentJobs = data.results || [];
+  status.innerText = "Scored jobs";
+
+  renderJobs();
+}
+
+function getCardClass(score) {
+  if (score >= 75) return "best";
+  if (score >= 50) return "medium";
+  return "low";
+}
+
+function getJobScore(job) {
+  if (typeof job.numericScore === "number") return job.numericScore;
+  if (typeof job.score === "number") return job.score;
+  if (typeof job.instantScore === "number") return job.instantScore;
+
+  const scoreText = String(job.aiScore || "");
+  const match = scoreText.match(/Score:\s*([0-9]+(?:\.[0-9]+)?)/i);
+  if (match) return Number(match[1]);
+
+  return 0;
+}
+
+function getScoreLabel(job) {
+  const numericScore = getJobScore(job);
+
+  if (job.numericScore !== undefined) return `${numericScore}/5`;
+  if (job.score !== undefined) return `${numericScore}`;
+  if (job.instantScore !== undefined) return `${numericScore}`;
+
+  return "N/A";
+}
+
+function buildJobText(job) {
+  return `
+Title: ${job.title || ""}
+Employer: ${job.employer || ""}
+Location: ${job.location || ""}
+Job Type: ${job.jobType || ""}
+Link: ${job.link || ""}
+Closing Date: ${job.closingDate || "Not stated"}
+Closing Status: ${job.closingStatus || "Not stated"}
+Expiry: ${job.expiryLabel || "Closing date not found"}
+Days Until Closing: ${job.daysUntilClosing ?? "Not available"}
+
+Score: ${getScoreLabel(job)}
+Instant Readiness: ${job.instantReadiness || ""}
+AI Score:
+${job.aiScore || ""}
+
+Summary:
+${job.snippet || ""}
+
+Full Description:
+${job.fullDescription || ""}
+`;
+}
+
+function getFilenameFromResponse(response, fallback) {
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return match?.[1] || fallback;
+}
+
+function renderJobs() {
+  const box = document.getElementById("jobCards");
+  box.innerHTML = "";
+
+  currentJobs.forEach((job, i) => {
+    const div = document.createElement("div");
+    const score = getJobScore(job);
+    div.className = "job-card " + getCardClass(score);
+
+    div.innerHTML = `
+      <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
+      <div class="badge">Score: ${getScoreLabel(job)}</div>
+      ${job.daysUntilClosing !== undefined && job.daysUntilClosing !== null ? `<div class="badge">${job.daysUntilClosing} days remaining</div>` : ""}
+      ${job.instantReadiness ? `<div class="badge">${job.instantReadiness}</div>` : ""}
+      ${job.closingStatus ? `<div class="badge">${job.closingStatus}${job.closingDate ? ": " + job.closingDate : ""}</div>` : ""}
+      ${job.expiryLabel ? `<div class="badge">${job.expiryLabel}</div>` : ""}
+      ${job.aiScore ? `<pre>${job.aiScore}</pre>` : ""}
+      <p>${job.snippet || ""}</p>
+      ${job.link ? `<a href="${job.link}" target="_blank">Open</a><br>` : ""}
+      <button onclick="selectJob(${i})">Use Job</button>
+    `;
+
+    box.appendChild(div);
+  });
+}
+
+function selectJob(i) {
+  const job = currentJobs[i];
+  document.getElementById("job").value = buildJobText(job);
+  document.getElementById("result").innerText = "Selected job: " + (job.title || "Untitled job");
+}
+
+async function generateCV() {
+  const jobText = document.getElementById("job").value.trim();
+  const result = document.getElementById("result");
+
+  if (!jobText) {
+    alert("Please select a job first.");
+    return;
+  }
+
+  result.innerText = "Generating CV...";
+
+  const res = await fetch("/cv", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ profile, job: jobText })
+  });
+
+  const data = await res.json();
+  result.innerText = data.result || data.error || "No CV returned.";
+}
+
+async function generateCoverLetter() {
+  const jobText = document.getElementById("job").value.trim();
+  const result = document.getElementById("result");
+
+  if (!jobText) {
+    alert("Please select a job first.");
+    return;
+  }
+
+  result.innerText = "Generating cover letter...";
+
+  const res = await fetch("/cover-letter", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ profile, job: jobText })
+  });
+
+  const data = await res.json();
+  result.innerText = data.result || data.error || "No cover letter returned.";
+}
+
+async function generatePack() {
+  const jobText = document.getElementById("job").value.trim();
+  const result = document.getElementById("result");
+
+  if (!jobText) {
+    alert("Please select a job first.");
+    return;
+  }
+
+  result.innerText = "Generating application pack...";
+
+  const res = await fetch("/application-pack", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ profile, job: jobText })
+  });
+
+  const data = await res.json();
+  result.innerText = data.result || data.error || "No application pack returned.";
+}
+
+async function downloadCV() {
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please select a job first.");
+    return;
+  }
+
+  const res = await fetch("/cv-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ profile, job: jobText })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = getFilenameFromResponse(res, "Matched_CV.docx");
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+async function downloadCoverLetter() {
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please select a job first.");
+    return;
+  }
+
+  const res = await fetch("/cover-letter-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ profile, job: jobText })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = getFilenameFromResponse(res, "Cover_Letter.docx");
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+async function downloadApplicationPack() {
+  const jobText = document.getElementById("job").value.trim();
+
+  if (!jobText) {
+    alert("Please select a job first.");
+    return;
+  }
+
+  const res = await fetch("/application-pack-download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ profile, job: jobText })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = getFilenameFromResponse(res, "Application_Pack.docx");
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
+loadProfile();
+</script>
+
+</body>
+</html>
