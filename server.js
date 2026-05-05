@@ -612,13 +612,24 @@ Score each job out of 5 using this framework:
 5. Practical fit /1
 
 Rules:
-- If visa is Citizen or Have working rights, do not penalise lack of sponsorship.
-- If visa is Requires sponsorship, penalise if sponsorship is not mentioned.
-- If AHPRA is General registration, do not penalise basic AHPRA requirements.
-- If AHPRA is limited/provisional/eligible only, check supervision and suitability.
+- Be conservative. Avoid false reassurance.
+- A total score of 5/5 should mean the applicant is realistically a strong candidate, not just possibly eligible.
 - If job is clearly too senior, such as consultant/staff specialist/director, score low for RMO/PHO users.
 - If job is nursing/allied health, score 0 and recommend Skip.
 - Use only the supplied job data unless the full job description is provided elsewhere in the request.
+
+Strict registration scoring:
+- Registration = 1/1 ONLY if the applicant already clearly meets the job's registration requirement OR the job explicitly accepts limited/provisional registration, supervised practice, IMGs, or registration-eligible applicants.
+- Registration = 0.5/1 if the applicant is only eligible for registration but the job does not clearly mention IMG suitability, supervision, limited/provisional registration, or registration-eligible applicants.
+- Registration = 0/1 if the role clearly requires general/specialist registration and the applicant does not currently hold that registration.
+- Do not treat "eligible for registration" as the same as "currently registered".
+
+Strict visa scoring:
+- Visa = 1/1 ONLY if sponsorship, 482 sponsorship, employer nomination, IMG suitability, or international applicants are clearly supported or strongly implied.
+- Visa = 0.5/1 if sponsorship is unclear but the role is in a public hospital, rural/regional area, area of need, workforce shortage setting, or IMG-friendly context where sponsorship may be possible.
+- Visa = 0/1 if unrestricted work rights, PR, citizenship, or no sponsorship is required or strongly implied.
+- If visa is Citizen or Have working rights, do not penalise lack of sponsorship.
+- If visa is Requires sponsorship, do not give full visa marks unless sponsorship/IMG suitability is clear or strongly implied.
 
 Apply readiness must be one of:
 Ready to apply now / Needs visa clarity / Needs AHPRA/supervision clarity / Not suitable
