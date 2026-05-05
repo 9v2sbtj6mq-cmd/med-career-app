@@ -505,18 +505,40 @@
 </div>
 
 <script>
+
 const APP_ACCESS_CODE = "med123";
 
-function checkAccess() {
-  if (localStorage.getItem("medCareerAccess") === "yes") return;
+function getSessionToken() {
+  return localStorage.getItem("medCareerSessionToken") || "";
+}
+
+function apiHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "x-session-token": getSessionToken()
+  };
+}
+
+async function checkAccess() {
+  if (localStorage.getItem("medCareerAccess") === "yes" && getSessionToken()) return;
 
   const entered = prompt("Enter access code");
-  if (entered !== APP_ACCESS_CODE) {
+
+  const res = await fetch("/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessCode: entered })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.token) {
     document.body.innerHTML = "<div style='font-family: Arial; padding: 40px; text-align: center;'><h2>Access denied</h2><p>Please contact the app owner for access.</p></div>";
     throw new Error("Access denied");
   }
 
   localStorage.setItem("medCareerAccess", "yes");
+  localStorage.setItem("medCareerSessionToken", data.token);
 }
 function updateSponsorshipFromVisa() {
   const visa = document.getElementById("visa").value.toLowerCase();
@@ -773,7 +795,7 @@ async function uploadCVFile() {
     try {
       const res = await fetch("/upload-docx", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
+        headers: apiHeaders(),
         body: JSON.stringify({ file: base64 })
       });
 
@@ -794,10 +816,12 @@ async function uploadCVFile() {
   reader.readAsDataURL(file);
 }
 
-checkAccess();
-loadProfilePreset();
-updateSponsorshipFromVisa();
-toggleReferees();
+(async function initApp() {
+  await checkAccess();
+  loadProfilePreset();
+  updateSponsorshipFromVisa();
+  toggleReferees();
+})();
 </script>
 </body>
 </html>

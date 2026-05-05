@@ -1,9 +1,11 @@
+const crypto = require("crypto");
 const express = require("express");
 const dotenv = require("dotenv");
 const mammoth = require("mammoth");
 const { tavily } = require("@tavily/core");
 const { chromium } = require("playwright");
 const NodeCache = require("node-cache");
+const rateLimit = require("express-rate-limit");
 const { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } = require("docx");
 
 dotenv.config();
@@ -12,11 +14,51 @@ const app = express();
 app.use(express.json({ limit: "25mb" }));
 app.use(express.static("."));
 
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Too many requests. Please wait a few minutes and try again."
+  }
+});
+
+app.use(apiLimiter);
+
+app.use((req, res, next) => {
+  const publicRoutes = ["/", "/index.html", "/jobs.html", "/auth"];
+
+  if (publicRoutes.includes(req.path)) {
+    return next();
+  }
+
+  const sessionToken = req.headers["x-session-token"] || req.headers["x-app-key"];
+
+  if (!sessionToken || sessionToken !== APP_SESSION_TOKEN) {
+    return res.status(401).json({ error: "Unauthorized request." });
+  }
+
+  next();
+});
+
+app.post("/auth", (req, res) => {
+  const { accessCode } = req.body || {};
+
+  if (!accessCode || accessCode !== APP_ACCESS_CODE) {
+    return res.status(401).json({ error: "Invalid access code." });
+  }
+
+  res.json({ token: APP_SESSION_TOKEN });
+});
+
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const APP_ACCESS_CODE = process.env.APP_ACCESS_CODE || "med123";
+const APP_SESSION_TOKEN = process.env.APP_SESSION_TOKEN || process.env.APP_ACCESS_KEY || "med-career-private-beta-2026";
 
 const MODEL_FAST = process.env.GEMINI_MODEL_FAST || "gemini-2.5-flash-lite";
 const MODEL_SMART = process.env.GEMINI_MODEL_SMART || "gemini-2.5-flash";
@@ -239,9 +281,25 @@ function buildScoreText(score) {
   ].join("\n");
 }
 
+
+function stableStringify(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value !== "object") return String(value);
+
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+
+  return `{${Object.keys(value)
+    .sort()
+    .map(key => `${key}:${stableStringify(value[key])}`)
+    .join(",")}}`;
+}
+
 function makeGeminiCacheKey(prefix, profile, job, model = "") {
-  const raw = `${prefix}:${model}:${profile || ""}:${job || ""}`;
-  return raw.slice(0, 5000);
+  const raw = `${prefix}:${model}:${stableStringify(profile)}:${stableStringify(job)}`;
+  return crypto.createHash("sha256").update(raw).digest("hex");
 }
 
 
@@ -1401,7 +1459,7 @@ app.post("/auto-search", async (req, res) => {
 
 app.post("/score-jobs", async (req, res) => {
   try {
-    const { jobs, quickProfile, profile } = req.body;
+    const { jobs, quickProfile, profile, offset = 0, limit = 10 } = req.body;
     const applicantProfile = quickProfile || profileToText(profile);
 
     if (!Array.isArray(jobs) || jobs.length === 0) {
@@ -1409,8 +1467,11 @@ app.post("/score-jobs", async (req, res) => {
     }
 
     const splitJobs = splitAndDedupeJobs(jobs, applicantProfile);
-    const jobsToScore = await enrichTopJobsWithFirecrawl(splitJobs.suitable.slice(0, 12));
-    const cacheKey = `score:${SCORING_PROVIDER}:${JSON.stringify(jobsToScore.map(j => j.link))}:${applicantProfile}`;
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    const safeLimit = Math.min(10, Math.max(1, Number(limit) || 10));
+    const jobsSlice = splitJobs.suitable.slice(safeOffset, safeOffset + safeLimit);
+    const jobsToScore = await enrichTopJobsWithFirecrawl(jobsSlice);
+    const cacheKey = `score:${SCORING_PROVIDER}:${safeOffset}:${safeLimit}:${JSON.stringify(jobsToScore.map(j => j.link))}:${applicantProfile}`;
 
     const cached = scoreCache.get(cacheKey);
     if (cached) return res.json({ results: cached.results || cached, rejected: cached.rejected || [], cached: true });
@@ -1420,6 +1481,7 @@ You are an Australian medical recruitment assistant.
 
 Give PRELIMINARY suitability scoring for each job.
 Use only the supplied title, link, employer, location, type, and snippet.
+Keep the output compact. Each reason and warning must be under 20 words.
 Do not pretend you have read the full official job description.
 
 Applicant:
@@ -1435,9 +1497,9 @@ Employer: ${job.employer || ""}
 Location: ${job.location || ""}
 Type: ${job.jobType || ""}
 Link: ${job.link}
-Snippet: ${job.snippet || ""}
+Snippet: ${(job.snippet || "").slice(0, 500)}
 Full job description source: ${job.descriptionSource || "snippet"}
-Full job description if available: ${(job.fullDescription || "").slice(0, 6000)}
+Full job description if available: ${(job.fullDescription || "").slice(0, 1000)}
 Closing date: ${job.closingDate || "Not stated"}
 Closing status: ${job.closingStatus || "No closing date found"}
 Expiry label: ${job.expiryLabel || "Closing date not found"}
@@ -1467,9 +1529,21 @@ Days until closing: ${job.daysUntilClosing ?? "Not available"}
       })
       .sort((a, b) => b.numericScore - a.numericScore);
 
-    scoreCache.set(cacheKey, { results: scoredJobs, rejected: splitJobs.rejected });
+    scoreCache.set(cacheKey, {
+      results: scoredJobs,
+      rejected: splitJobs.rejected,
+      nextOffset: safeOffset + scoredJobs.length,
+      hasMore: safeOffset + safeLimit < splitJobs.suitable.length,
+      totalSuitable: splitJobs.suitable.length
+    });
 
-    res.json({ results: scoredJobs, rejected: splitJobs.rejected });
+    res.json({
+      results: scoredJobs,
+      rejected: splitJobs.rejected,
+      nextOffset: safeOffset + scoredJobs.length,
+      hasMore: safeOffset + safeLimit < splitJobs.suitable.length,
+      totalSuitable: splitJobs.suitable.length
+    });
   } catch (error) {
     res.status(500).json({ error: `Score error: ${error.message}` });
   }

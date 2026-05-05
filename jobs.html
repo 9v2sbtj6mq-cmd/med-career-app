@@ -394,6 +394,118 @@
       text-align: center;
     }
 
+    .workflow-guide {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .workflow-step {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .workflow-step strong {
+      display: block;
+      color: #0f172a;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .best-match-badge {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+
+    .strong-match-badge {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+
+    .closing-soon-badge {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+
+    .closing-warning-badge {
+      background: #ffedd5;
+      color: #9a3412;
+      border-color: #fed7aa;
+    }
+
+    .spinner-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid #dbeafe;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .document-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    .filter-grid label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: #475569;
+      margin-bottom: 5px;
+    }
+
+    .filter-grid input,
+    .filter-grid select {
+      width: 100%;
+      padding: 9px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .hidden-action {
+      display: none;
+    }
+
+    .document-actions-ready .hidden-action {
+      display: inline-flex;
+    }
+
     @media (max-width: 1000px) {
       .app-shell {
         padding: 16px;
@@ -417,6 +529,14 @@
       .profile-summary {
         grid-template-columns: 1fr;
       }
+
+      .workflow-guide {
+        grid-template-columns: 1fr;
+      }
+
+      .filter-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -432,6 +552,14 @@
     <a href="index.html">← Edit Applicant Profile</a>
   </div>
 
+  <div class="workflow-guide">
+    <div class="workflow-step"><strong>1. Find Jobs</strong>Search live Australian medical job boards.</div>
+    <div class="workflow-step"><strong>2. Rank Matches</strong>Score the top roles in batches of 10.</div>
+    <div class="workflow-step"><strong>3. Select Job</strong>Choose the role you want to apply for.</div>
+    <div class="workflow-step"><strong>4. Generate</strong>Create a tailored CV or cover letter.</div>
+    <div class="workflow-step"><strong>5. Download</strong>Export Word documents when ready.</div>
+  </div>
+
 <div class="layout">
   <div class="left-panel">
     <div class="section">
@@ -442,9 +570,44 @@
     <div class="section">
       <h3>Search Jobs</h3>
 
-      <p class="section-subtitle">Search first, then score the best-matching jobs for this profile.</p>
-      <button onclick="searchJobs()" class="button-green">Search Jobs</button>
-      <button onclick="scoreJobs()">Score Jobs</button>
+      <p class="section-subtitle">Find jobs first, then rank the strongest matches in batches of 10.</p>
+      <button onclick="searchJobs()" class="button-green">Find Jobs</button>
+      <button onclick="scoreJobs()">Rank Top Matches</button>
+
+      <div class="filter-grid">
+        <div>
+          <label>Search within results</label>
+          <input id="filterText" placeholder="ED, RMO, QLD, sponsorship" oninput="renderJobs()">
+        </div>
+        <div>
+          <label>Source</label>
+          <select id="filterSource" onchange="renderJobs()">
+            <option value="">All sources</option>
+            <option value="SEEK">SEEK</option>
+            <option value="Jora">Jora</option>
+            <option value="Indeed">Indeed</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="Health">Health / Government</option>
+            <option value="Medical">Medical recruiters</option>
+          </select>
+        </div>
+        <div>
+          <label>Minimum score</label>
+          <select id="filterScore" onchange="renderJobs()">
+            <option value="0">Any score</option>
+            <option value="50">50+</option>
+            <option value="75">75+</option>
+          </select>
+        </div>
+        <div>
+          <label>Closing date</label>
+          <select id="filterClosing" onchange="renderJobs()">
+            <option value="">Any closing date</option>
+            <option value="7">Closing within 7 days</option>
+            <option value="14">Closing within 14 days</option>
+          </select>
+        </div>
+      </div>
 
       <pre id="status">Idle</pre>
       <div id="jobCards"></div>
@@ -469,14 +632,21 @@
     <div class="section">
       <h3>Documents</h3>
 
-      <p class="section-subtitle">Generate first, then download Word files instantly where possible.</p>
-      <button onclick="generateCV()" class="button-green">Generate CV</button>
-      <button onclick="generateCoverLetter()">Generate Cover Letter</button>
-      <button onclick="generatePack()">Application Pack</button>
-      <button onclick="downloadCV()" class="button-secondary">Download CV Word</button>
-      <button onclick="downloadCoverLetter()" class="button-secondary">Download Cover Letter Word</button>
-      <button onclick="downloadApplicationPack()" class="button-secondary">Download Application Pack Word</button>
+      <p class="section-subtitle">Generate the document you need. Download buttons appear after something is generated.</p>
+      <div id="documentActions">
+        <button onclick="generatePack()" class="button-green">Generate Application Pack</button>
+        <button onclick="generateCV()">Generate CV Only</button>
+        <button onclick="generateCoverLetter()">Generate Cover Letter Only</button>
+        <button onclick="downloadCV()" class="button-secondary hidden-action">Download CV Word</button>
+        <button onclick="downloadCoverLetter()" class="button-secondary hidden-action">Download Cover Letter Word</button>
+        <button onclick="downloadApplicationPack()" class="button-secondary hidden-action">Download Application Pack Word</button>
+      </div>
 
+      <div class="document-toolbar">
+        <button onclick="copyResult()" class="button-secondary hidden-action">Copy Output</button>
+        <button onclick="regenerateLastDocument()" class="button-secondary hidden-action">Regenerate Last Document</button>
+        <button onclick="clearGeneratedDraft()" class="button-danger hidden-action">Clear Draft</button>
+      </div>
       <pre id="result"></pre>
     </div>
   </div>
@@ -493,16 +663,148 @@ let scoreHasMore = false;
 const SCORE_BATCH_SIZE = 10;
 const APP_ACCESS_CODE = "med123";
 
-function checkAccess() {
-  if (localStorage.getItem("medCareerAccess") === "yes") return;
+function getSessionToken() {
+  return localStorage.getItem("medCareerSessionToken") || "";
+}
+
+function apiHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "x-session-token": getSessionToken()
+  };
+}
+
+async function checkAccess() {
+  if (localStorage.getItem("medCareerAccess") === "yes" && getSessionToken()) return;
 
   const entered = prompt("Enter access code");
-  if (entered !== APP_ACCESS_CODE) {
+
+  const res = await fetch("/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessCode: entered })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.token) {
     document.body.innerHTML = "<div style='font-family: Arial; padding: 40px; text-align: center;'><h2>Access denied</h2><p>Please contact the app owner for access.</p></div>";
     throw new Error("Access denied");
   }
 
   localStorage.setItem("medCareerAccess", "yes");
+  localStorage.setItem("medCareerSessionToken", data.token);
+}
+
+function setDocumentActionsReady() {
+  document.getElementById("documentActions")?.classList.add("document-actions-ready");
+}
+
+
+function focusResultPanel() {
+  document.getElementById("result")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.querySelector(".right-panel")?.scrollTo({ top: document.querySelector(".right-panel")?.scrollHeight || 0, behavior: "smooth" });
+}
+
+function setLoading(message) {
+  const result = document.getElementById("result");
+  result.innerHTML = `<div class="spinner-line"><span class="spinner"></span><span>${message}</span></div>`;
+  focusResultPanel();
+}
+
+function saveGeneratedDraft(type, text) {
+  if (!text || text.length < 20) return;
+
+  localStorage.setItem("lastGeneratedDocument", JSON.stringify({
+    type,
+    text,
+    job: document.getElementById("job").value || "",
+    savedAt: new Date().toISOString()
+  }));
+}
+
+function restoreGeneratedDraft() {
+  const raw = localStorage.getItem("lastGeneratedDocument");
+  if (!raw) return;
+
+  try {
+    const draft = JSON.parse(raw);
+    if (!draft?.text) return;
+
+    document.getElementById("result").innerText = draft.text;
+    if (draft.job) document.getElementById("job").value = draft.job;
+    setDocumentActionsReady();
+  } catch (error) {
+    localStorage.removeItem("lastGeneratedDocument");
+  }
+}
+
+function clearGeneratedDraft() {
+  localStorage.removeItem("lastGeneratedDocument");
+  document.getElementById("result").innerText = "";
+}
+
+async function copyResult() {
+  const text = document.getElementById("result").innerText.trim();
+
+  if (!text) {
+    alert("Nothing to copy yet.");
+    return;
+  }
+
+  await navigator.clipboard.writeText(text);
+  alert("Copied to clipboard.");
+}
+
+async function regenerateLastDocument() {
+  const raw = localStorage.getItem("lastGeneratedDocument");
+  const draft = raw ? JSON.parse(raw) : null;
+  const type = draft?.type || "pack";
+
+  if (type === "cv") return generateCV();
+  if (type === "coverLetter") return generateCoverLetter();
+  return generatePack();
+}
+
+function getClosingBadgeClass(job = {}) {
+  const days = Number(job.daysUntilClosing);
+
+  if (!Number.isFinite(days)) return "";
+  if (days <= 7) return "closing-soon-badge";
+  if (days <= 14) return "closing-warning-badge";
+
+  return "";
+}
+
+function getFilteredJobs() {
+  const text = (document.getElementById("filterText")?.value || "").toLowerCase().trim();
+  const source = document.getElementById("filterSource")?.value || "";
+  const minScore = Number(document.getElementById("filterScore")?.value || 0);
+  const closingWithin = Number(document.getElementById("filterClosing")?.value || 0);
+
+  return currentJobs.filter(job => {
+    const sourceLabel = getJobSourceLabel(job);
+    const haystack = [
+      job.title,
+      job.employer,
+      job.location,
+      job.jobType,
+      job.snippet,
+      job.aiScore,
+      sourceLabel
+    ].join(" ").toLowerCase();
+
+    if (text && !haystack.includes(text)) return false;
+    if (source && !sourceLabel.toLowerCase().includes(source.toLowerCase())) return false;
+    if (minScore && getJobScore(job) < minScore) return false;
+
+    if (closingWithin) {
+      const days = Number(job.daysUntilClosing);
+      if (!Number.isFinite(days) || days > closingWithin) return false;
+    }
+
+    return true;
+  });
 }
 
 function loadProfile() {
@@ -535,11 +837,11 @@ Referees: ${profile.refereesOnRequest ? "Available upon request" : "Entered manu
 
 async function searchJobs() {
   const status = document.getElementById("status");
-  status.innerText = "Searching jobs...";
+  status.innerText = "Searching live job boards. This may take a few seconds...";
 
   const res = await fetch("/auto-search", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({ profile })
   });
 
@@ -581,11 +883,11 @@ async function scoreJobs(loadMore = false) {
     selectedJobIndex = null;
   }
 
-  status.innerText = loadMore ? "Scoring next 10 jobs..." : "Scoring top 10 jobs...";
+  status.innerText = loadMore ? "Ranking the next 10 jobs..." : "Ranking the top 10 jobs...";
 
   const res = await fetch("/score-jobs", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({
       jobs: allSearchJobs,
       profile,
@@ -720,11 +1022,18 @@ function renderJobs() {
   renderLoadMoreScoredButton();
 
   if (!currentJobs.length) {
-    box.innerHTML = '<div class="empty-state">No jobs loaded yet. Click Search Jobs to begin.</div>';
+    box.innerHTML = '<div class="empty-state">No jobs loaded yet. Click Find Jobs to begin.</div>';
     return;
   }
 
-  currentJobs.forEach((job, i) => {
+  const jobsToRender = getFilteredJobs();
+
+  if (!jobsToRender.length) {
+    box.innerHTML = '<div class="empty-state">No jobs match the current filters.</div>';
+    return;
+  }
+
+  jobsToRender.forEach((job, i) => {
     const div = document.createElement("div");
     const score = getJobScore(job);
     div.className = "job-card " + getCardClass(score) + (selectedJobIndex === i ? " selected-job" : "");
@@ -732,8 +1041,9 @@ function renderJobs() {
     div.innerHTML = `
       <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
       <div class="badge">Score: ${getScoreLabel(job)}</div>
+      ${i === 0 && job.numericScore ? `<div class="badge best-match-badge">🔥 Best Match</div>` : i > 0 && i < 3 && job.numericScore ? `<div class="badge strong-match-badge">⭐ Strong Match</div>` : ""}
       <div class="badge">Source: ${getJobSourceLabel(job)}</div>
-      ${job.daysUntilClosing !== undefined && job.daysUntilClosing !== null ? `<div class="badge">${job.daysUntilClosing} days remaining</div>` : ""}
+      ${job.daysUntilClosing !== undefined && job.daysUntilClosing !== null ? `<div class="badge ${getClosingBadgeClass(job)}">${job.daysUntilClosing} days remaining</div>` : ""}
       ${job.instantReadiness ? `<div class="badge">${job.instantReadiness}</div>` : ""}
       ${job.closingStatus ? `<div class="badge">${job.closingStatus}${job.closingDate ? ": " + job.closingDate : ""}</div>` : ""}
       ${job.expiryLabel ? `<div class="badge">${job.expiryLabel}</div>` : ""}
@@ -741,9 +1051,9 @@ function renderJobs() {
       <p>${job.snippet || ""}</p>
       ${job.link ? `<a href="${job.link}" target="_blank">Open</a><br>` : ""}
       <div class="button-row">
-        <button onclick="selectJob(${i})">Use Job</button>
-        <button onclick="saveJob(${i}, 'Interested')">Save Interested</button>
-        <button onclick="saveJob(${i}, 'Applied')">Mark Applied</button>
+        <button onclick="selectJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}')">Use Job</button>
+        <button onclick="saveJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}', 'Interested')">Save Interested</button>
+        <button onclick="saveJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}', 'Applied')">Mark Applied</button>
       </div>
     `;
 
@@ -759,6 +1069,16 @@ function selectJob(i) {
   renderJobs();
   renderLoadMoreScoredButton();
   document.querySelector(".right-panel")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function selectJobByLink(link) {
+  const index = currentJobs.findIndex(job => String(job.link || "") === String(link || ""));
+  if (index >= 0) selectJob(index);
+}
+
+function saveJobByLink(link, statusValue = "Interested") {
+  const index = currentJobs.findIndex(job => String(job.link || "") === String(link || ""));
+  if (index >= 0) saveJob(index, statusValue);
 }
 
 function saveJob(i, statusValue = "Interested") {
@@ -803,7 +1123,7 @@ function renderSavedJobs() {
       <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
       <div class="badge">${job.status || "Interested"}</div>
       <div class="badge">Source: ${getJobSourceLabel(job)}</div>
-      ${job.expiryLabel ? `<div class="badge">${job.expiryLabel}</div>` : ""}
+      ${job.expiryLabel ? `<div class="badge ${getClosingBadgeClass(job)}">${job.expiryLabel}</div>` : ""}
       ${job.closingDate ? `<div class="badge">Closing: ${job.closingDate}</div>` : ""}
       <p>${job.snippet || ""}</p>
       ${job.link ? `<a href="${job.link}" target="_blank">Open</a><br>` : ""}
@@ -876,16 +1196,19 @@ async function generateCV() {
     return;
   }
 
-  result.innerText = "Generating CV...";
+  setLoading("Generating tailored CV. This may take a few seconds...");
 
   const res = await fetch("/cv", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({ profile, job: jobText })
   });
 
   const data = await res.json();
   result.innerText = data.result || data.error || "No CV returned.";
+  saveGeneratedDraft("cv", result.innerText);
+  setDocumentActionsReady();
+  focusResultPanel();
 }
 
 async function generateCoverLetter() {
@@ -897,16 +1220,19 @@ async function generateCoverLetter() {
     return;
   }
 
-  result.innerText = "Generating cover letter...";
+  setLoading("Generating tailored cover letter. This may take a few seconds...");
 
   const res = await fetch("/cover-letter", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({ profile, job: jobText })
   });
 
   const data = await res.json();
   result.innerText = data.result || data.error || "No cover letter returned.";
+  saveGeneratedDraft("coverLetter", result.innerText);
+  setDocumentActionsReady();
+  focusResultPanel();
 }
 
 async function generatePack() {
@@ -918,16 +1244,19 @@ async function generatePack() {
     return;
   }
 
-  result.innerText = "Generating application pack...";
+  setLoading("Generating full application pack. This may take a little longer...");
 
   const res = await fetch("/application-pack", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({ profile, job: jobText })
   });
 
   const data = await res.json();
   result.innerText = data.result || data.error || "No application pack returned.";
+  saveGeneratedDraft("pack", result.innerText);
+  setDocumentActionsReady();
+  focusResultPanel();
 }
 
 async function downloadCV() {
@@ -949,7 +1278,7 @@ async function downloadCV() {
 
   const res = await fetch("/cv-download", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({ profile, job: jobText, cvText: usableCvText })
   });
 
@@ -987,7 +1316,7 @@ async function downloadCoverLetter() {
 
   const res = await fetch("/cover-letter-download", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({ profile, job: jobText, coverLetterText: usableCoverLetterText })
   });
 
@@ -1016,7 +1345,7 @@ async function downloadApplicationPack() {
 
   const res = await fetch("/application-pack-download", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: apiHeaders(),
     body: JSON.stringify({ profile, job: jobText })
   });
 
@@ -1029,9 +1358,12 @@ async function downloadApplicationPack() {
   window.URL.revokeObjectURL(url);
 }
 
-checkAccess();
-loadProfile();
-renderSavedJobs();
+(async function initApp() {
+  await checkAccess();
+  loadProfile();
+  renderSavedJobs();
+  restoreGeneratedDraft();
+})();
 </script>
 </div>
 </body>
