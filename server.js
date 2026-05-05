@@ -348,7 +348,7 @@ function buildSearchQueryFromProfile(profile) {
 
   const location = state && state !== "All states" ? state : "";
   const sponsorship = profile.needsSponsorship
-    ? "visa sponsorship sponsor 482 IMG international medical graduate limited registration supervision area of need"
+    ? "IMG friendly visa sponsorship supervision hospital doctor"
     : "";
 
   return [base, location, sponsorship, specialty]
@@ -372,17 +372,38 @@ ${job}
 function cvTailoringInstructions() {
   return `
 CV tailoring instructions:
-- First detect CV Mode from the Doctor Profile.
-- If CV Mode is "Use Pasted CV", treat Existing CV as the source of truth. Preserve the candidate's real chronology, roles, qualifications, and wording where appropriate, but improve clarity, structure, and job relevance.
-- If CV Mode is "Use Structured Template", build the CV from the structured template fields.
+- First detect CV Mode from the Doctor Profile, but do not treat the modes as completely separate.
+- If CV Mode is "Use Pasted CV", treat Existing CV as the main source of truth. Preserve the candidate's real chronology, roles, qualifications, and clinical experience.
+- If structured fields also contain useful information, use them to fill gaps or strengthen the pasted CV, but do not let structured fields override the pasted CV unless they clearly add missing details.
+- If CV Mode is "Use Structured Template", build the CV mainly from the structured template fields.
+- If both Existing CV and structured fields are supplied, intelligently merge both:
+  • Existing CV controls dates, roles, qualifications, registrations, publications, and real chronology.
+  • Structured fields can add missing professional summary, skills, courses, audits, extra notes, and referee preferences.
+  • If there is a conflict between pasted CV and structured fields, prefer the pasted CV and use a placeholder/comment only if clarification is needed.
 - Do not invent hospitals, dates, qualifications, registration status, visa status, procedures, audits, publications, referees, or achievements.
 - If information is missing, include a clear placeholder such as [Add dates] or [Add hospital name] rather than making it up.
 - Tailor the CV to the job description by prioritising matching clinical experience, registration/supervision fit, visa/sponsorship fit, ED/hospital/rotational experience, courses, audits, and skills.
 - Reorder bullet points within sections so the most relevant material for this job appears first.
-- Keep the tone polished, natural, and suitable for Australian hospital medical recruitment.
+- Keep the tone polished, natural, human, and suitable for Australian hospital medical recruitment.
+- Make the CV feel like a strong edited version of the candidate's real CV, not a newly invented AI document.
 - Avoid generic AI phrases such as passionate, dynamic, fast-paced, cutting-edge, robust, leverage, and seamless.
 - If unsure, prefer omission over guessing.
 - Keep formatting clean with clear headings and concise bullet points.
+`;
+}
+
+function mergedCvModeInstructions() {
+  return `
+Merged CV mode rules:
+- Do not ignore structured fields just because an uploaded/pasted CV exists.
+- Do not ignore the uploaded/pasted CV just because structured fields exist.
+- Use uploaded/pasted CV as the factual backbone whenever available.
+- Use structured fields as supporting evidence and gap-fillers.
+- If the uploaded CV has old or overseas contact details but the profile form has updated Australian contact details, use the profile form contact details.
+- If uploaded CV says referees are available on request and the profile form also says referees available on request, keep that wording.
+- If structured fields are blank, do not mention them.
+- If structured fields contain extra notes relevant to the job, integrate them naturally into the appropriate CV section.
+- If both sources repeat the same information, include it once only.
 `;
 }
 
@@ -566,6 +587,23 @@ Return valid JSON array only. Do not include markdown. Do not include explanatio
 `;
 }
 
+function cvScoringGenerationInstructions() {
+  return `
+CV scoring-to-generation workflow:
+- Before writing the final CV, internally assess how well the applicant matches the selected job.
+- Use the job score, AI score, instant readiness, closing information, and job description if supplied.
+- Identify the strongest matching evidence from the applicant's real CV.
+- Identify gaps or weak areas that should be handled carefully.
+- Improve the CV by strengthening relevant real experience, not by inventing new facts.
+- If the job score/readiness suggests visa, AHPRA, supervision, or level concerns, address them honestly in the Registration / Visa / Work Rights section.
+- If the job is ED/RMO/HMO focused, push acute care, ED exposure, procedures, escalation, referrals, discharge summaries, and supervised decision-making higher in the CV.
+- If the job is rotational or ward-based, push ward care, admissions, documentation, discharge planning, multidisciplinary communication, and follow-up care higher.
+- If the job is procedure-heavy, push suturing, I&D, catheterisation, IV/IA sampling, NG tube insertion, wound care, and other real procedures higher.
+- Do not print the internal score analysis unless specifically requested.
+- The final CV must feel like it was deliberately tailored to improve the applicant's match for this exact job.
+`;
+}
+
 function makeSeekSlug(query) {
   return query
     .toLowerCase()
@@ -640,19 +678,68 @@ async function extractSeekJobsWithPlaywright(url) {
   }
 }
 
+
 function isSeekSearchPage(url) {
   const lower = url.toLowerCase();
   return lower.includes("seek.com.au") && !lower.includes("seek.com.au/job/");
 }
 
-function isAllowedUrl(url) {
+function isGenericJobListingPage(item = {}) {
+  const url = String(item.url || "").toLowerCase();
+  const title = String(item.title || "").toLowerCase();
+  const content = String(item.content || item.snippet || "").toLowerCase();
+  const combined = `${title} ${content}`;
+
+  if (isSeekSearchPage(url)) return true;
+
+  if (
+    combined.match(/^[\d,]+\s+.+\s+jobs\s+in\s+/i) ||
+    combined.includes("jobs in australia | jora") ||
+    combined.includes("jobs in australia - jora") ||
+    combined.includes("jobs in australia | indeed") ||
+    combined.includes("jobs in australia - indeed") ||
+    combined.includes("hospital medical officer jobs in australia") ||
+    combined.includes("resident medical officer jobs in australia") ||
+    combined.includes("rmo jobs in australia")
+  ) {
+    return true;
+  }
+
+  const genericTitlePatterns = [
+    /jobs in .*\| jora/i,
+    /jobs in .*- jora/i,
+    /jobs in .*\| indeed/i,
+    /jobs in .*- indeed/i,
+    /hospital medical officer jobs/i,
+    /resident medical officer jobs/i,
+    /rmo jobs/i,
+    /medical officer jobs/i
+  ];
+
+  return genericTitlePatterns.some(pattern => pattern.test(title));
+}
+
+function isAllowedUrl(url = "") {
+  const value = String(url || "").toLowerCase();
+
   const allowed = [
     "seek.com.au",
     "smartjobs.qld.gov.au",
     "apply-springboard.health.qld.gov.au",
     "jobs.health.nsw.gov.au",
+    "iworkfor.nsw.gov.au",
+    "careers.vic.gov.au",
+    "health.vic.gov.au",
+    "jobs.sa.gov.au",
+    "jobs.wa.gov.au",
+    "health.nt.gov.au",
+    "jobs.act.gov.au",
+    "jobs.tas.gov.au",
     "au.jora.com",
     "jora.com",
+    "indeed.com",
+    "au.indeed.com",
+    "linkedin.com/jobs",
     "healthworkforce.com.au",
     "medrecruit.com",
     "skilledmedical.com",
@@ -668,12 +755,110 @@ function isAllowedUrl(url) {
     "ahpra.gov.au",
     "medicalboard.gov.au",
     "youtube.com",
-    "linkedin.com"
+    "linkedin.com/in/",
+    "linkedin.com/company/",
+    "linkedin.com/feed/"
   ];
 
-  const lower = url.toLowerCase();
+  return allowed.some(d => value.includes(d)) && !blocked.some(d => value.includes(d));
+}
 
-  return allowed.some(d => lower.includes(d)) && !blocked.some(d => lower.includes(d));
+function getJobSource(url = "") {
+  const value = String(url || "").toLowerCase();
+
+  if (value.includes("seek.com.au")) return "SEEK";
+  if (value.includes("jora.com")) return "Jora";
+  if (value.includes("indeed.com")) return "Indeed";
+  if (value.includes("linkedin.com")) return "LinkedIn";
+  if (value.includes("smartjobs.qld.gov.au") || value.includes("apply-springboard.health.qld.gov.au")) return "Queensland Health / SmartJobs";
+  if (value.includes("jobs.health.nsw.gov.au") || value.includes("iworkfor.nsw.gov.au")) return "NSW Health / iWorkForNSW";
+  if (value.includes("careers.vic.gov.au") || value.includes("health.vic.gov.au")) return "Victoria Health / Careers VIC";
+  if (value.includes("jobs.sa.gov.au")) return "SA Government Jobs";
+  if (value.includes("jobs.wa.gov.au")) return "WA Government Jobs";
+  if (value.includes("health.nt.gov.au")) return "NT Health";
+  if (value.includes("jobs.act.gov.au")) return "ACT Government Jobs";
+  if (value.includes("jobs.tas.gov.au")) return "Tasmanian Government Jobs";
+  if (value.includes("medrecruit.com")) return "Medrecruit";
+  if (value.includes("skilledmedical.com")) return "Skilled Medical";
+  if (value.includes("headmedical.com")) return "Head Medical";
+  if (value.includes("globalmedics.com.au")) return "Global Medics";
+  if (value.includes("ramsaycareers.com.au")) return "Ramsay Careers";
+  if (value.includes("healthscope.com.au")) return "Healthscope";
+  if (value.includes("healthworkforce.com.au")) return "Health Workforce";
+
+  return "Other job board";
+}
+
+function cleanJobTitle(title = "") {
+  return String(title || "")
+    .replace(/\s*[-|]\s*(SEEK|Jora|Indeed|LinkedIn|SmartJobs|Queensland Government|NSW Health).*$/i, "")
+    .replace(/\s*\|\s*.*$/g, "")
+    .replace(/\s+/g, " ")
+    .trim() || "Untitled job";
+}
+
+function extractLocationFromText(text = "") {
+  const source = String(text || "");
+  const patterns = [
+    /(?:location|located in|based in)[:\s-]+([^|\n.]+)/i,
+    /\b(Queensland|QLD|New South Wales|NSW|Victoria|VIC|South Australia|SA|Western Australia|WA|Tasmania|TAS|Northern Territory|NT|ACT|Canberra|Sydney|Melbourne|Brisbane|Perth|Adelaide|Hobart|Darwin|Rockhampton|Cairns|Townsville|Mackay|Gold Coast|Sunshine Coast|Toowoomba)\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (match?.[1]) return match[1].trim();
+    if (match?.[0]) return match[0].trim();
+  }
+
+  return "";
+}
+
+function extractEmployerFromText(text = "", source = "") {
+  const value = String(text || "");
+  const patterns = [
+    /(?:company|employer|organisation|organization|facility|hospital|health service)[:\s-]+([^|\n.]+)/i,
+    /(?:at|with)\s+([A-Z][A-Za-z&'\s]+(?:Hospital|Health|Health Service|Medical Centre|Clinic|Care|Network))/
+  ];
+
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+
+  if (source && source !== "Other job board") return source;
+  return "";
+}
+
+function extractJobTypeFromText(text = "") {
+  const value = String(text || "").toLowerCase();
+
+  if (value.includes("full time") || value.includes("full-time")) return "Full-time";
+  if (value.includes("part time") || value.includes("part-time")) return "Part-time";
+  if (value.includes("fixed term") || value.includes("fixed-term")) return "Fixed term";
+  if (value.includes("temporary")) return "Temporary";
+  if (value.includes("permanent")) return "Permanent";
+  if (value.includes("casual")) return "Casual";
+  if (value.includes("contract")) return "Contract";
+
+  return "";
+}
+
+function buildDirectJobFromTavilyItem(item) {
+  const source = getJobSource(item.url || "");
+  const rawTitle = item.title || "Untitled job";
+  const content = item.content || item.snippet || "";
+  const combined = `${rawTitle}\n${content}`;
+
+  return addClosingDateInfo({
+    title: cleanJobTitle(rawTitle),
+    employer: extractEmployerFromText(combined, source),
+    location: extractLocationFromText(combined),
+    jobType: extractJobTypeFromText(combined),
+    link: item.url,
+    snippet: content,
+    source,
+    descriptionSource: "tavily"
+  });
 }
 
 function getHardRejectionReason(job) {
@@ -1102,16 +1287,40 @@ app.post("/auto-search", async (req, res) => {
       return res.json({ results: cached, cached: true, queryUsed: userQuery });
     }
 
-    const searchQuery = `${userQuery} -nurse -nursing -midwife -pharmacist -physiotherapist SEEK SmartJobs NSW Health medical jobs`;
+    const negativeTerms = "-nurse -nursing -midwife -pharmacist -physiotherapist -allied -dentist";
+    const sourceQueries = [
+      `${userQuery} ${negativeTerms} site:seek.com.au`,
+      `${userQuery} ${negativeTerms} site:jora.com OR site:au.jora.com`,
+      `${userQuery} ${negativeTerms} site:indeed.com OR site:au.indeed.com`,
+      `${userQuery} ${negativeTerms} site:linkedin.com/jobs`,
+      `${userQuery} ${negativeTerms} site:smartjobs.qld.gov.au OR site:apply-springboard.health.qld.gov.au`,
+      `${userQuery} ${negativeTerms} site:iworkfor.nsw.gov.au OR site:jobs.health.nsw.gov.au`,
+      `${userQuery} ${negativeTerms} site:careers.vic.gov.au OR site:health.vic.gov.au`,
+      `${userQuery} ${negativeTerms} site:jobs.sa.gov.au OR site:jobs.wa.gov.au`,
+      `${userQuery} ${negativeTerms} site:health.nt.gov.au OR site:jobs.act.gov.au OR site:jobs.tas.gov.au`,
+      `${userQuery} ${negativeTerms} site:medrecruit.com OR site:skilledmedical.com OR site:headmedical.com OR site:globalmedics.com.au`
+    ];
 
-    const tavilyResponse = await tavilyClient.search(searchQuery, {
-      searchDepth: "basic",
-      maxResults: 50,
-      includeAnswer: false,
-      includeRawContent: false,
-      topic: "general"
+    const tavilyResponses = await Promise.allSettled(
+      sourceQueries.map(sourceQuery => tavilyClient.search(sourceQuery, {
+        searchDepth: "basic",
+        maxResults: 12,
+        includeAnswer: false,
+        includeRawContent: false,
+        topic: "general"
+      }))
+    );
+
+    const tavilyResults = tavilyResponses.flatMap((response, index) => {
+      if (response.status !== "fulfilled") {
+        console.warn("Tavily source search failed:", sourceQueries[index], response.reason?.message || response.reason);
+        return [];
+      }
+      return response.value.results || [];
     });
-    console.log("Tavily raw results:", tavilyResponse.results?.length || 0);
+
+    console.log("Tavily source searches:", sourceQueries.length);
+    console.log("Tavily combined raw results:", tavilyResults.length);
 
     let extractedJobs = [];
 
@@ -1119,9 +1328,7 @@ app.post("/auto-search", async (req, res) => {
     const seekBaseUrl = `https://www.seek.com.au/${slug}-jobs`;
 
     const seekUrls = [
-      seekBaseUrl,
-      `${seekBaseUrl}?page=2`,
-      `${seekBaseUrl}?page=3`
+      seekBaseUrl
     ];
 
     const seekJobGroups = await Promise.all(
@@ -1133,11 +1340,12 @@ app.post("/auto-search", async (req, res) => {
     }
     console.log("Playwright SEEK direct jobs:", extractedJobs.length);
 
-    const tavilyResults = (tavilyResponse.results || [])
+    const allowedTavilyResults = tavilyResults
       .filter(item => isAllowedUrl(item.url || ""))
-      .slice(0, 40);
+      .filter(item => !isGenericJobListingPage(item))
+      .slice(0, 80);
 
-    const seekPages = tavilyResults
+    const seekPages = allowedTavilyResults
       .filter(item => isSeekSearchPage(item.url || ""))
       .slice(0, 2);
 
@@ -1150,25 +1358,38 @@ app.post("/auto-search", async (req, res) => {
     }
     console.log("After Tavily SEEK page scraping jobs:", extractedJobs.length);
 
-    const directJobs = tavilyResults
+    const directJobs = allowedTavilyResults
       .filter(item => !isSeekSearchPage(item.url || ""))
-      .map(item => ({
-        title: item.title || "Untitled job",
-        employer: "",
-        location: "",
-        jobType: "",
-        link: item.url,
-        snippet: item.content || ""
-      }));
+      .map(buildDirectJobFromTavilyItem);
 
     extractedJobs.push(...directJobs);
     console.log("Extracted jobs before dedupe:", extractedJobs.length);
 
-    const uniqueJobs = dedupeJobs(extractedJobs, userQuery).slice(0, 200);
+    let uniqueJobs = dedupeJobs(extractedJobs, userQuery).slice(0, 80);
+
+    if (uniqueJobs.length === 0) {
+      console.log("No jobs after dedupe. Running fallback broad RMO search.");
+
+      const fallbackQuery = "resident medical officer RMO hospital medical officer jobs Australia site:seek.com.au OR site:jora.com OR site:indeed.com OR site:smartjobs.qld.gov.au OR site:jobs.health.nsw.gov.au";
+      const fallbackResponse = await tavilyClient.search(fallbackQuery, {
+        searchDepth: "basic",
+        maxResults: 80,
+        includeAnswer: false,
+        includeRawContent: false,
+        topic: "general"
+      });
+
+      const fallbackJobs = (fallbackResponse.results || [])
+        .filter(item => isAllowedUrl(item.url || ""))
+        .filter(item => !isGenericJobListingPage(item))
+        .map(buildDirectJobFromTavilyItem);
+
+      uniqueJobs = dedupeJobs(fallbackJobs, fallbackQuery).slice(0, 80);
+      console.log("Fallback unique jobs after dedupe:", uniqueJobs.length);
+    }
+
     console.log("Unique jobs after dedupe:", uniqueJobs.length);
-
     searchCache.set(cacheKey, uniqueJobs);
-
     res.json({ results: uniqueJobs, queryUsed: userQuery });
 
   } catch (error) {
@@ -1188,7 +1409,7 @@ app.post("/score-jobs", async (req, res) => {
     }
 
     const splitJobs = splitAndDedupeJobs(jobs, applicantProfile);
-    const jobsToScore = await enrichTopJobsWithFirecrawl(splitJobs.suitable.slice(0, 20));
+    const jobsToScore = await enrichTopJobsWithFirecrawl(splitJobs.suitable.slice(0, 12));
     const cacheKey = `score:${SCORING_PROVIDER}:${JSON.stringify(jobsToScore.map(j => j.link))}:${applicantProfile}`;
 
     const cached = scoreCache.get(cacheKey);
@@ -1219,6 +1440,8 @@ Full job description source: ${job.descriptionSource || "snippet"}
 Full job description if available: ${(job.fullDescription || "").slice(0, 6000)}
 Closing date: ${job.closingDate || "Not stated"}
 Closing status: ${job.closingStatus || "No closing date found"}
+Expiry label: ${job.expiryLabel || "Closing date not found"}
+Days until closing: ${job.daysUntilClosing ?? "Not available"}
 `).join("\n")}
 `;
 
@@ -1261,6 +1484,7 @@ You are an Australian medical recruitment assistant.
 
 Prepare a semi-automated application pack for this medical job.
 Use a natural, human Australian medical recruitment tone. Avoid robotic phrasing and generic filler.
+${mergedCvModeInstructions()}
 
 Do NOT pretend the application has been submitted.
 Do NOT answer legal/visa/AHPRA declaration questions automatically.
@@ -1317,6 +1541,7 @@ app.post("/application-pack-download", async (req, res) => {
     const prompt = `
 Prepare a complete semi-automated Australian medical job application pack.
 Use a polished, natural, human Australian medical recruitment tone. Avoid robotic phrasing and generic filler.
+${mergedCvModeInstructions()}
 
 Return plain text only.
 Include:
@@ -1391,9 +1616,17 @@ You are an expert Australian hospital medical CV writer.
 
 ${jobCriteriaExtractionInstructions()}
 ${cvTailoringInstructions()}
+${mergedCvModeInstructions()}
 ${cvQualityInstructions()}
 ${humanWritingInstructions()}
 ${topTierMedicalCvInstructions()}
+${cvScoringGenerationInstructions()}
+Additional humanisation and de-AI rules:
+- After writing the CV, review it and REMOVE any generic or AI-sounding phrases.
+- Specifically remove or avoid words like: dedicated, passionate, proven ability, dynamic, highly motivated, strong team player, fast-paced, cutting-edge.
+- Replace vague statements with concrete clinical actions.
+- Every bullet should reflect a real task or responsibility, not a generic claim.
+- Ensure the CV reads like it was written by a real doctor applying for a job, not an AI generator.
 
 Output requirements:
 - Return the full tailored CV only.
@@ -1404,6 +1637,24 @@ Output requirements:
 - Include employment history in reverse chronological order if dates are supplied.
 - Include education, registration/visa information if supplied, courses, audits/research/publications, and referees if supplied.
 - Keep it honest, polished, and professional.
+- Ensure tone is natural, slightly varied, and human (not repetitive or templated).
+- Avoid identical sentence structures across bullet points.
+- Prefer short, direct clinical statements over long generic sentences.
+
+Smart tailoring rules (very important):
+- Identify the top 5–8 most important requirements from the job description.
+- Use any supplied job score, AI score, recommendation, apply readiness, warnings, and instant readiness to decide what the CV must strengthen.
+- If the score is low or moderate, do not ignore the weakness; improve the CV honestly by highlighting relevant real evidence and using placeholders for missing information.
+- Reorder clinical experience so the MOST relevant duties appear first.
+- Emphasise:
+  • ED experience if job mentions emergency/acute care
+  • Procedures if job mentions hands-on skills
+  • Teamwork and escalation if hospital-based role
+  • Supervision level if limited registration is relevant
+  • AMC MCQ, PTE, AHPRA eligibility, and visa/sponsorship status where relevant
+- De-emphasise irrelevant experience (do not delete, just move lower).
+- Align wording with job keywords without copying the job description.
+- Make the CV clearly feel "written for this job".
 
 ${buildMedicalContext(profile, job)}
 `;
@@ -1418,7 +1669,23 @@ ${buildMedicalContext(profile, job)}
 
 app.post("/cv-download", async (req, res) => {
   try {
-    const { profile, job } = req.body;
+    const { profile, job, cvText } = req.body;
+
+    if (cvText && String(cvText).trim().length > 100) {
+      const profileText = profileToText(profile);
+      const nameMatch = String(profileText || "").match(/Name:\s*(.*)/);
+      const levelMatch = String(profileText || "").match(/Level:\s*(.*)/);
+      const safeName = (nameMatch?.[1] || "Medical")
+        .trim()
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "Medical";
+      const safeLevel = (levelMatch?.[1] || "CV")
+        .trim()
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "CV";
+
+      return await createDocxFromText(String(cvText).trim(), `${safeName}_${safeLevel}_CV.docx`, res);
+    }
 
     const prompt = `
 You are an expert Australian hospital medical CV writer.
@@ -1427,9 +1694,11 @@ Create a top-tier Australian medical CV suitable for Word download using the can
 
 ${jobCriteriaExtractionInstructions()}
 ${cvTailoringInstructions()}
+${mergedCvModeInstructions()}
 ${cvQualityInstructions()}
 ${humanWritingInstructions()}
 ${topTierMedicalCvInstructions()}
+${cvScoringGenerationInstructions()}
 
 Rules:
 - Return plain text only.
@@ -1440,6 +1709,9 @@ Rules:
 - Do not fake registration or visa status.
 - Tailor strongly to the supplied job description and selected role level.
 - Use placeholders for missing facts rather than inventing details.
+- Use any supplied job score, AI score, recommendation, apply readiness, warnings, and instant readiness to improve the CV match.
+- If the selected job text includes an AI Score section, use it internally to strengthen the CV but do not print the score analysis in the CV.
+- Make the downloaded CV use the same smart tailoring and humanisation rules as the preview CV.
 
 ${buildMedicalContext(profile, job)}
 `;
@@ -1480,6 +1752,8 @@ Return:
 4. Missing keywords or criteria
 5. Suggested changes to improve match
 6. 5 stronger bullet points the applicant could use, without inventing facts
+7. What the CV generator should emphasise first when rewriting this CV
+8. What should be de-emphasised or moved lower
 
 Rules:
 - Be practical and concise.
@@ -1488,7 +1762,7 @@ Rules:
 - Focus on Australian hospital medical recruitment.
 
 Doctor Profile:
-${profile || ""}
+${profileToText(profile)}
 
 Job Description:
 ${job || ""}
@@ -1561,11 +1835,15 @@ Rules:
 - Use placeholders for missing details, such as [Add date], [Add hospital], or [Add referee details].
 - Improve the professional summary, clinical bullet points, section order, and keyword match.
 - Use the CV review feedback if supplied.
+- If both uploaded/pasted CV content and structured profile fields are present, merge them intelligently: pasted CV is the factual backbone, structured fields fill gaps and add extra details.
+- Use the job score/readiness context if present in the job description text.
+- Strengthen weak scoring areas honestly by highlighting real matching evidence from the candidate's CV.
 - If unsure, prefer omission over guessing.
-- Keep the tone natural and suitable for Australian hospital medical recruitment.
+- Keep the tone natural, human, and suitable for Australian hospital medical recruitment.
+- Remove generic or AI-sounding phrases.
 
 Doctor Profile:
-${profile || ""}
+${profileToText(profile)}
 
 Job Description:
 ${job || ""}
@@ -1629,7 +1907,23 @@ ${buildMedicalContext(profile, job)}
 
 app.post("/cover-letter-download", async (req, res) => {
   try {
-    const { profile, job } = req.body;
+    const { profile, job, coverLetterText } = req.body;
+
+    if (coverLetterText && String(coverLetterText).trim().length > 100) {
+      const profileText = profileToText(profile);
+      const nameMatch = String(profileText || "").match(/Name:\s*(.*)/);
+      const levelMatch = String(profileText || "").match(/Level:\s*(.*)/);
+      const safeName = (nameMatch?.[1] || "Medical")
+        .trim()
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "Medical";
+      const safeLevel = (levelMatch?.[1] || "Cover")
+        .trim()
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "Cover";
+
+      return await createDocxFromText(String(coverLetterText).trim(), `${safeName}_${safeLevel}_Cover_Letter.docx`, res);
+    }
 
     const prompt = `
 Write an Australian medical cover letter.
@@ -1676,6 +1970,8 @@ ${buildMedicalContext(profile, job)}
   }
 });
 
-app.listen(3000, () => {
-  console.log(`Server running with 200-job search. Scoring provider: ${SCORING_PROVIDER}. Firecrawl top jobs: ${FIRECRAWL_TOP_N}. Gemini CV/evaluation model: ${MODEL_SMART}. http://localhost:3000`);
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}. Search cap: 80 jobs. Scoring provider: ${SCORING_PROVIDER}. Firecrawl top jobs: ${FIRECRAWL_TOP_N}. Gemini CV/evaluation model: ${MODEL_SMART}.`);
 });

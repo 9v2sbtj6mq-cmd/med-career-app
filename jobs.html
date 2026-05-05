@@ -5,114 +5,499 @@
   <title>Job Search - Med Career Evaluator</title>
 
   <style>
-    body { font-family: Arial; margin: 30px; background: #f5f7fa; }
-    h2 { color: #2c3e50; }
+    :root {
+      --bg: #eef3f8;
+      --card: #ffffff;
+      --card-soft: #f8fafc;
+      --text: #1f2937;
+      --muted: #64748b;
+      --border: #d9e2ec;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 0;
+      background: linear-gradient(135deg, #eef6ff 0%, #f8fafc 45%, #eef3f8 100%);
+      color: var(--text);
+    }
+
+    .app-shell {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 26px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 22px;
+      padding: 22px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #1e3a8a, #2563eb);
+      color: white;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar h2 {
+      margin: 0 0 6px 0;
+      color: white;
+      font-size: 26px;
+      letter-spacing: -0.02em;
+    }
+
+    .topbar p {
+      margin: 0;
+      color: #dbeafe;
+      font-size: 14px;
+    }
+
+    .topbar a {
+      color: white;
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.16);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .topbar a:hover {
+      background: rgba(255, 255, 255, 0.26);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(390px, 0.85fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .left-panel, .right-panel {
+      min-width: 0;
+    }
+
+    .right-panel {
+      position: sticky;
+      top: 20px;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      padding-right: 4px;
+    }
 
     .section {
-      background: white;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      padding: 18px;
+      margin-bottom: 18px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(217, 226, 236, 0.9);
+      box-shadow: var(--shadow);
+    }
+
+    .section h3 {
+      margin: 0 0 14px 0;
+      font-size: 18px;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+    }
+
+    .section-subtitle {
+      margin: -8px 0 14px 0;
+      color: var(--muted);
+      font-size: 13px;
     }
 
     button {
       padding: 10px 14px;
-      margin: 5px;
-      background: #2c7be5;
+      margin: 5px 5px 5px 0;
+      background: var(--primary);
       color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 10px;
       cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18);
+    }
+
+    button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .button-row button {
+      margin: 0;
+    }
+
+    .button-secondary {
+      background: #475569;
+      box-shadow: 0 4px 10px rgba(71, 85, 105, 0.14);
+    }
+
+    .button-secondary:hover {
+      background: #334155;
+    }
+
+    .button-green {
+      background: var(--green);
+      box-shadow: 0 4px 10px rgba(22, 163, 74, 0.14);
+    }
+
+    .button-green:hover {
+      background: #15803d;
+    }
+
+    .button-danger {
+      background: var(--red);
+      box-shadow: 0 4px 10px rgba(220, 38, 38, 0.14);
+    }
+
+    .button-danger:hover {
+      background: #b91c1c;
     }
 
     .job-card {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
-      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 15px;
+      margin-bottom: 12px;
+      background: var(--card);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+
+    .job-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.10);
+      border-color: #bfdbfe;
+    }
+
+    .job-card.selected-job {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14), 0 14px 28px rgba(15, 23, 42, 0.10);
+      background: #f8fbff;
     }
 
     .job-title {
-      font-weight: bold;
+      font-weight: 800;
       font-size: 16px;
+      line-height: 1.35;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+
+    .job-card p {
+      color: #475569;
+      line-height: 1.45;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    .job-card a {
+      color: var(--primary);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .job-card a:hover {
+      text-decoration: underline;
     }
 
     .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 5px;
-      background: #eef3f8;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eaf2ff;
+      color: #1d4ed8;
       margin-right: 6px;
-      margin-bottom: 6px;
+      margin-bottom: 7px;
       font-size: 12px;
-      font-weight: bold;
+      font-weight: 800;
+      border: 1px solid #dbeafe;
     }
 
-    .best { border-left: 6px solid #28a745; }
-    .medium { border-left: 6px solid #f0ad4e; }
-    .low { border-left: 6px solid #d9534f; }
+    .best {
+      border-left: 7px solid var(--green);
+    }
+
+    .medium {
+      border-left: 7px solid var(--amber);
+    }
+
+    .low {
+      border-left: 7px solid var(--red);
+    }
 
     textarea {
       width: 100%;
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
       margin-top: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.45;
+      background: #fbfdff;
+      color: var(--text);
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
     }
 
     pre {
       white-space: pre-wrap;
-      background: #fafafa;
+      background: var(--card-soft);
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow: auto;
+      max-height: 520px;
+    }
+
+    #status {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 700;
+      min-height: 44px;
+    }
+
+    #result {
+      min-height: 220px;
+    }
+
+    #jobCards {
+      max-height: 720px;
+      overflow-y: auto;
+      padding-right: 8px;
+      margin-top: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: #93c5fd #e2e8f0;
+    }
+
+    #savedJobs {
+      max-height: 520px;
+      overflow-y: auto;
+      padding-right: 8px;
+      margin-top: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: #93c5fd #e2e8f0;
+    }
+
+    #jobCards::-webkit-scrollbar,
+    #savedJobs::-webkit-scrollbar,
+    .right-panel::-webkit-scrollbar,
+    pre::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #jobCards::-webkit-scrollbar-track,
+    #savedJobs::-webkit-scrollbar-track,
+    .right-panel::-webkit-scrollbar-track,
+    pre::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      border-radius: 999px;
+    }
+
+    #jobCards::-webkit-scrollbar-thumb,
+    #savedJobs::-webkit-scrollbar-thumb,
+    .right-panel::-webkit-scrollbar-thumb,
+    pre::-webkit-scrollbar-thumb {
+      background: #93c5fd;
+      border-radius: 999px;
+    }
+
+    .profile-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .mini-card {
       padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #ddd;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+    }
+
+    .mini-card strong {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+
+    .mini-card span {
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .saved-job-controls {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+    }
+
+    .saved-job-controls select,
+    .saved-job-controls textarea {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 6px;
+      margin-bottom: 10px;
+      padding: 9px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: white;
+    }
+
+    .empty-state {
+      padding: 18px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      color: var(--muted);
+      background: #f8fafc;
+      text-align: center;
+    }
+
+    @media (max-width: 1000px) {
+      .app-shell {
+        padding: 16px;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .right-panel {
+        position: static;
+        max-height: none;
+        overflow: visible;
+      }
+
+      .profile-summary {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 
 <body>
 
-<h2>Job Search & Applications</h2>
-<p><a href="index.html">← Edit Applicant Profile</a></p>
+<div class="app-shell">
+  <div class="topbar">
+    <div>
+      <h2>Med Career Evaluator</h2>
+      <p>Search Australian medical jobs, shortlist roles, and generate tailored CVs and cover letters.</p>
+    </div>
+    <a href="index.html">← Edit Applicant Profile</a>
+  </div>
 
-<div class="section">
-  <h3>Profile Loaded</h3>
-  <pre id="profileBox">Loading profile...</pre>
-</div>
+<div class="layout">
+  <div class="left-panel">
+    <div class="section">
+      <h3>Profile Loaded</h3>
+      <pre id="profileBox">Loading profile...</pre>
+    </div>
 
-<div class="section">
-  <h3>Search Jobs</h3>
+    <div class="section">
+      <h3>Search Jobs</h3>
 
-  <button onclick="searchJobs()">Search Jobs</button>
-  <button onclick="scoreJobs()">Score Jobs</button>
+      <p class="section-subtitle">Search first, then score the best-matching jobs for this profile.</p>
+      <button onclick="searchJobs()" class="button-green">Search Jobs</button>
+      <button onclick="scoreJobs()">Score Jobs</button>
 
-  <pre id="status">Idle</pre>
-  <div id="jobCards"></div>
-</div>
+      <pre id="status">Idle</pre>
+      <div id="jobCards"></div>
+    </div>
 
-<div class="section">
-  <h3>Selected Job</h3>
-  <textarea id="job" rows="8" placeholder="Selected job will appear here"></textarea>
-</div>
+    <div class="section">
+      <h3>Saved Jobs Dashboard</h3>
+      <p class="section-subtitle">Track interesting jobs, application status, and notes.</p>
+      <button onclick="renderSavedJobs()" class="button-secondary">Refresh Saved Jobs</button>
+      <button onclick="clearSavedJobs()" class="button-danger">Clear Saved Jobs</button>
+      <div id="savedJobs"></div>
+    </div>
+  </div>
 
-<div class="section">
-  <h3>Documents</h3>
+  <div class="right-panel">
+    <div class="section">
+      <h3>Selected Job</h3>
+      <textarea id="job" rows="10" placeholder="Selected job will appear here"></textarea>
+    </div>
 
-  <button onclick="generateCV()">Generate CV</button>
-  <button onclick="generateCoverLetter()">Generate Cover Letter</button>
-  <button onclick="generatePack()">Application Pack</button>
-  <button onclick="downloadCV()">Download CV Word</button>
-  <button onclick="downloadCoverLetter()">Download Cover Letter Word</button>
-  <button onclick="downloadApplicationPack()">Download Application Pack Word</button>
+    <div class="section">
+      <h3>Documents</h3>
 
-  <pre id="result"></pre>
+      <p class="section-subtitle">Generate first, then download Word files instantly where possible.</p>
+      <button onclick="generateCV()" class="button-green">Generate CV</button>
+      <button onclick="generateCoverLetter()">Generate Cover Letter</button>
+      <button onclick="generatePack()">Application Pack</button>
+      <button onclick="downloadCV()" class="button-secondary">Download CV Word</button>
+      <button onclick="downloadCoverLetter()" class="button-secondary">Download Cover Letter Word</button>
+      <button onclick="downloadApplicationPack()" class="button-secondary">Download Application Pack Word</button>
+
+      <pre id="result"></pre>
+    </div>
+  </div>
 </div>
 
 <script>
 let profile = {};
 let currentJobs = [];
+let selectedJobIndex = null;
+const APP_ACCESS_CODE = "med123";
+
+function checkAccess() {
+  if (localStorage.getItem("medCareerAccess") === "yes") return;
+
+  const entered = prompt("Enter access code");
+  if (entered !== APP_ACCESS_CODE) {
+    document.body.innerHTML = "<div style='font-family: Arial; padding: 40px; text-align: center;'><h2>Access denied</h2><p>Please contact the app owner for access.</p></div>";
+    throw new Error("Access denied");
+  }
+
+  localStorage.setItem("medCareerAccess", "yes");
+}
 
 function loadProfile() {
   const saved = JSON.parse(localStorage.getItem("applicantProfile") || "null");
@@ -160,7 +545,7 @@ async function searchJobs() {
   }
 
   currentJobs = data.results || [];
-  status.innerText = "Found " + currentJobs.length + " jobs";
+  status.innerText = "Found " + currentJobs.length + " jobs. Scroll inside the results box to review them.";
 
   renderJobs();
 }
@@ -188,7 +573,7 @@ async function scoreJobs() {
   }
 
   currentJobs = data.results || [];
-  status.innerText = "Scored jobs";
+  status.innerText = "Scored jobs. Best matches are highlighted with green, moderate matches with amber, and weaker matches with red.";
 
   renderJobs();
 }
@@ -211,6 +596,7 @@ function getJobScore(job) {
   return 0;
 }
 
+
 function getScoreLabel(job) {
   const numericScore = getJobScore(job);
 
@@ -221,6 +607,34 @@ function getScoreLabel(job) {
   return "N/A";
 }
 
+function getJobSourceLabel(job = {}) {
+  if (job.source) return job.source;
+
+  const link = String(job.link || "").toLowerCase();
+
+  if (link.includes("seek.com.au")) return "SEEK";
+  if (link.includes("jora.com")) return "Jora";
+  if (link.includes("indeed.com")) return "Indeed";
+  if (link.includes("linkedin.com")) return "LinkedIn";
+  if (link.includes("smartjobs.qld.gov.au") || link.includes("apply-springboard.health.qld.gov.au")) return "Queensland Health / SmartJobs";
+  if (link.includes("jobs.health.nsw.gov.au") || link.includes("iworkfor.nsw.gov.au")) return "NSW Health";
+  if (link.includes("careers.vic.gov.au") || link.includes("health.vic.gov.au")) return "Victoria Health";
+  if (link.includes("jobs.sa.gov.au")) return "SA Government Jobs";
+  if (link.includes("jobs.wa.gov.au")) return "WA Government Jobs";
+  if (link.includes("health.nt.gov.au")) return "NT Health";
+  if (link.includes("jobs.act.gov.au")) return "ACT Government Jobs";
+  if (link.includes("jobs.tas.gov.au")) return "Tasmanian Government Jobs";
+  if (link.includes("medrecruit.com")) return "Medrecruit";
+  if (link.includes("skilledmedical.com")) return "Skilled Medical";
+  if (link.includes("headmedical.com")) return "Head Medical";
+  if (link.includes("globalmedics.com.au")) return "Global Medics";
+  if (link.includes("ramsaycareers.com.au")) return "Ramsay Careers";
+  if (link.includes("healthscope.com.au")) return "Healthscope";
+  if (link.includes("healthworkforce.com.au")) return "Health Workforce";
+
+  return "Job board";
+}
+
 function buildJobText(job) {
   return `
 Title: ${job.title || ""}
@@ -228,6 +642,7 @@ Employer: ${job.employer || ""}
 Location: ${job.location || ""}
 Job Type: ${job.jobType || ""}
 Link: ${job.link || ""}
+Source: ${getJobSourceLabel(job)}
 Closing Date: ${job.closingDate || "Not stated"}
 Closing Status: ${job.closingStatus || "Not stated"}
 Expiry: ${job.expiryLabel || "Closing date not found"}
@@ -256,14 +671,20 @@ function renderJobs() {
   const box = document.getElementById("jobCards");
   box.innerHTML = "";
 
+  if (!currentJobs.length) {
+    box.innerHTML = '<div class="empty-state">No jobs loaded yet. Click Search Jobs to begin.</div>';
+    return;
+  }
+
   currentJobs.forEach((job, i) => {
     const div = document.createElement("div");
     const score = getJobScore(job);
-    div.className = "job-card " + getCardClass(score);
+    div.className = "job-card " + getCardClass(score) + (selectedJobIndex === i ? " selected-job" : "");
 
     div.innerHTML = `
       <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
       <div class="badge">Score: ${getScoreLabel(job)}</div>
+      <div class="badge">Source: ${getJobSourceLabel(job)}</div>
       ${job.daysUntilClosing !== undefined && job.daysUntilClosing !== null ? `<div class="badge">${job.daysUntilClosing} days remaining</div>` : ""}
       ${job.instantReadiness ? `<div class="badge">${job.instantReadiness}</div>` : ""}
       ${job.closingStatus ? `<div class="badge">${job.closingStatus}${job.closingDate ? ": " + job.closingDate : ""}</div>` : ""}
@@ -271,7 +692,11 @@ function renderJobs() {
       ${job.aiScore ? `<pre>${job.aiScore}</pre>` : ""}
       <p>${job.snippet || ""}</p>
       ${job.link ? `<a href="${job.link}" target="_blank">Open</a><br>` : ""}
-      <button onclick="selectJob(${i})">Use Job</button>
+      <div class="button-row">
+        <button onclick="selectJob(${i})">Use Job</button>
+        <button onclick="saveJob(${i}, 'Interested')">Save Interested</button>
+        <button onclick="saveJob(${i}, 'Applied')">Mark Applied</button>
+      </div>
     `;
 
     box.appendChild(div);
@@ -280,8 +705,116 @@ function renderJobs() {
 
 function selectJob(i) {
   const job = currentJobs[i];
+  selectedJobIndex = i;
   document.getElementById("job").value = buildJobText(job);
   document.getElementById("result").innerText = "Selected job: " + (job.title || "Untitled job");
+  renderJobs();
+  document.querySelector(".right-panel")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function saveJob(i, statusValue = "Interested") {
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const job = currentJobs[i];
+
+  if (!job) return;
+
+  if (saved.some(savedJob => savedJob.link === job.link)) {
+    alert("This job is already saved.");
+    return;
+  }
+
+  saved.push({
+    ...job,
+    status: statusValue,
+    notes: "",
+    savedAt: new Date().toLocaleString()
+  });
+
+  localStorage.setItem("jobs", JSON.stringify(saved));
+  renderSavedJobs();
+}
+
+function renderSavedJobs() {
+  const saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const box = document.getElementById("savedJobs");
+  if (!box) return;
+
+  box.innerHTML = "";
+
+  if (!saved.length) {
+    box.innerHTML = '<div class="empty-state">No saved jobs yet. Save interesting jobs from the search results and track them here.</div>';
+    return;
+  }
+
+  saved.forEach((job, i) => {
+    const div = document.createElement("div");
+    div.className = "job-card " + getCardClass(getJobScore(job));
+
+    div.innerHTML = `
+      <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
+      <div class="badge">${job.status || "Interested"}</div>
+      <div class="badge">Source: ${getJobSourceLabel(job)}</div>
+      ${job.expiryLabel ? `<div class="badge">${job.expiryLabel}</div>` : ""}
+      ${job.closingDate ? `<div class="badge">Closing: ${job.closingDate}</div>` : ""}
+      <p>${job.snippet || ""}</p>
+      ${job.link ? `<a href="${job.link}" target="_blank">Open</a><br>` : ""}
+
+      <div class="saved-job-controls">
+        <label><strong>Status</strong></label>
+        <select onchange="updateSavedJobField(${i}, 'status', this.value)">
+          <option ${job.status === "Interested" ? "selected" : ""}>Interested</option>
+          <option ${job.status === "Applied" ? "selected" : ""}>Applied</option>
+          <option ${job.status === "Waiting response" ? "selected" : ""}>Waiting response</option>
+          <option ${job.status === "Interview" ? "selected" : ""}>Interview</option>
+          <option ${job.status === "Offer" ? "selected" : ""}>Offer</option>
+          <option ${job.status === "Rejected" ? "selected" : ""}>Rejected</option>
+        </select>
+
+        <label><strong>Notes</strong></label>
+        <textarea rows="3" placeholder="Notes" onchange="updateSavedJobField(${i}, 'notes', this.value)">${job.notes || ""}</textarea>
+      </div>
+
+      <div class="button-row">
+        <button onclick="useSavedJob(${i})">Use Job</button>
+        <button onclick="removeSavedJob(${i})">Remove</button>
+      </div>
+    `;
+
+    box.appendChild(div);
+  });
+}
+
+function updateSavedJobField(i, field, value) {
+  const saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  if (!saved[i]) return;
+
+  saved[i][field] = value;
+  localStorage.setItem("jobs", JSON.stringify(saved));
+}
+
+function useSavedJob(i) {
+  const saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const job = saved[i];
+  if (!job) return;
+
+  selectedJobIndex = null;
+  document.getElementById("job").value = buildJobText(job);
+  document.getElementById("result").innerText = "Selected saved job: " + (job.title || "Untitled job");
+  renderJobs();
+  document.querySelector(".right-panel")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function removeSavedJob(i) {
+  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  saved.splice(i, 1);
+  localStorage.setItem("jobs", JSON.stringify(saved));
+  renderSavedJobs();
+}
+
+function clearSavedJobs() {
+  if (!confirm("Clear all saved jobs?")) return;
+  localStorage.removeItem("jobs");
+  renderSavedJobs();
 }
 
 async function generateCV() {
@@ -349,17 +882,32 @@ async function generatePack() {
 
 async function downloadCV() {
   const jobText = document.getElementById("job").value.trim();
+  const resultText = document.getElementById("result").innerText.trim();
 
   if (!jobText) {
     alert("Please select a job first.");
     return;
   }
 
+  const usableCvText = resultText &&
+    resultText.length > 100 &&
+    !resultText.toLowerCase().includes("generating") &&
+    !resultText.toLowerCase().startsWith("selected job") &&
+    !resultText.toLowerCase().startsWith("selected saved job")
+      ? resultText
+      : "";
+
   const res = await fetch("/cv-download", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ profile, job: jobText })
+    body: JSON.stringify({ profile, job: jobText, cvText: usableCvText })
   });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || "CV download failed.");
+    return;
+  }
 
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
@@ -372,17 +920,32 @@ async function downloadCV() {
 
 async function downloadCoverLetter() {
   const jobText = document.getElementById("job").value.trim();
+  const resultText = document.getElementById("result").innerText.trim();
 
   if (!jobText) {
     alert("Please select a job first.");
     return;
   }
 
+  const usableCoverLetterText = resultText &&
+    resultText.length > 100 &&
+    !resultText.toLowerCase().includes("generating") &&
+    !resultText.toLowerCase().startsWith("selected job") &&
+    !resultText.toLowerCase().startsWith("selected saved job")
+      ? resultText
+      : "";
+
   const res = await fetch("/cover-letter-download", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ profile, job: jobText })
+    body: JSON.stringify({ profile, job: jobText, coverLetterText: usableCoverLetterText })
   });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || "Cover letter download failed.");
+    return;
+  }
 
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
@@ -416,8 +979,10 @@ async function downloadApplicationPack() {
   window.URL.revokeObjectURL(url);
 }
 
+checkAccess();
 loadProfile();
+renderSavedJobs();
 </script>
-
+</div>
 </body>
 </html>
