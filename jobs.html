@@ -448,6 +448,7 @@
 
       <pre id="status">Idle</pre>
       <div id="jobCards"></div>
+      <div id="loadMoreScoredBox" class="button-row"></div>
     </div>
 
     <div class="section">
@@ -485,6 +486,11 @@
 let profile = {};
 let currentJobs = [];
 let selectedJobIndex = null;
+let allSearchJobs = [];
+let scoredJobs = [];
+let scoreOffset = 0;
+let scoreHasMore = false;
+const SCORE_BATCH_SIZE = 10;
 const APP_ACCESS_CODE = "med123";
 
 function checkAccess() {
@@ -544,25 +550,48 @@ async function searchJobs() {
     return;
   }
 
-  currentJobs = data.results || [];
+  allSearchJobs = data.results || [];
+  currentJobs = allSearchJobs;
+  scoredJobs = [];
+  scoreOffset = 0;
+  scoreHasMore = false;
+  selectedJobIndex = null;
   status.innerText = "Found " + currentJobs.length + " jobs. Scroll inside the results box to review them.";
 
   renderJobs();
+  renderLoadMoreScoredButton();
 }
 
-async function scoreJobs() {
-  if (!currentJobs.length) {
+async function scoreJobs(loadMore = false) {
+  const status = document.getElementById("status");
+
+  if (!allSearchJobs.length && !currentJobs.length) {
     alert("Search jobs first");
     return;
   }
 
-  const status = document.getElementById("status");
-  status.innerText = "Scoring jobs...";
+  if (!allSearchJobs.length) {
+    allSearchJobs = currentJobs;
+  }
+
+  if (!loadMore) {
+    scoredJobs = [];
+    scoreOffset = 0;
+    scoreHasMore = false;
+    selectedJobIndex = null;
+  }
+
+  status.innerText = loadMore ? "Scoring next 10 jobs..." : "Scoring top 10 jobs...";
 
   const res = await fetch("/score-jobs", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ jobs: currentJobs, profile })
+    body: JSON.stringify({
+      jobs: allSearchJobs,
+      profile,
+      offset: scoreOffset,
+      limit: SCORE_BATCH_SIZE
+    })
   });
 
   const data = await res.json();
@@ -572,10 +601,28 @@ async function scoreJobs() {
     return;
   }
 
-  currentJobs = data.results || [];
-  status.innerText = "Scored jobs. Best matches are highlighted with green, moderate matches with amber, and weaker matches with red.";
+  const newScoredJobs = data.results || [];
+  scoredJobs = loadMore ? [...scoredJobs, ...newScoredJobs] : newScoredJobs;
+  scoreOffset = data.nextOffset || scoredJobs.length;
+  scoreHasMore = Boolean(data.hasMore);
+
+  currentJobs = scoredJobs;
+  status.innerText = `Showing ${scoredJobs.length} scored jobs${data.totalSuitable ? " out of " + data.totalSuitable : ""}. Best matches are highlighted with green, moderate matches with amber, and weaker matches with red.`;
 
   renderJobs();
+  renderLoadMoreScoredButton();
+}
+
+function renderLoadMoreScoredButton() {
+  const box = document.getElementById("loadMoreScoredBox");
+  if (!box) return;
+
+  if (!scoreHasMore) {
+    box.innerHTML = "";
+    return;
+  }
+
+  box.innerHTML = `<button onclick="scoreJobs(true)" class="button-secondary">Load more scored jobs</button>`;
 }
 
 function getCardClass(score) {
@@ -670,6 +717,7 @@ function getFilenameFromResponse(response, fallback) {
 function renderJobs() {
   const box = document.getElementById("jobCards");
   box.innerHTML = "";
+  renderLoadMoreScoredButton();
 
   if (!currentJobs.length) {
     box.innerHTML = '<div class="empty-state">No jobs loaded yet. Click Search Jobs to begin.</div>';
@@ -709,6 +757,7 @@ function selectJob(i) {
   document.getElementById("job").value = buildJobText(job);
   document.getElementById("result").innerText = "Selected job: " + (job.title || "Untitled job");
   renderJobs();
+  renderLoadMoreScoredButton();
   document.querySelector(".right-panel")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -801,6 +850,7 @@ function useSavedJob(i) {
   document.getElementById("job").value = buildJobText(job);
   document.getElementById("result").innerText = "Selected saved job: " + (job.title || "Untitled job");
   renderJobs();
+  renderLoadMoreScoredButton();
   document.querySelector(".right-panel")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
