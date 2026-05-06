@@ -1039,7 +1039,7 @@ async function searchJobs() {
     return;
   }
 
-  allSearchJobs = data.results || [];
+  allSearchJobs = preRankJobs(data.results || []);
   currentJobs = allSearchJobs;
   scoredJobs = [];
   scoreOffset = 0;
@@ -1049,6 +1049,83 @@ async function searchJobs() {
 
   renderJobs();
   renderLoadMoreScoredButton();
+}
+
+function preRankJobs(jobs = []) {
+  const targetLevel = String(profile.jobLevel || "RMO").toLowerCase();
+  const needsSponsorship = Boolean(profile.needsSponsorship);
+  const ahpra = String(profile.ahpra || "").toLowerCase();
+
+  return [...jobs]
+    .map(job => {
+      const text = [
+        job.title,
+        job.employer,
+        job.location,
+        job.jobType,
+        job.snippet,
+        job.link,
+        getJobSourceLabel(job)
+      ].join(" ").toLowerCase();
+
+      let preliminaryScore = 50;
+      const reasons = [];
+
+      if (/\b(rmo|resident medical officer|hmo|hospital medical officer|jmo|junior medical officer)\b/i.test(text)) {
+        preliminaryScore += 25;
+        reasons.push("level match");
+      }
+
+      if (/\b(ed|emergency|critical care|icu|anaesthesia|theatre|ward cover|rotational)\b/i.test(text)) {
+        preliminaryScore += 10;
+        reasons.push("training value");
+      }
+
+      if (/\b(public hospital|queensland health|nsw health|health service|district|regional|rural|area of need)\b/i.test(text)) {
+        preliminaryScore += 8;
+        reasons.push("public/regional signal");
+      }
+
+      if (needsSponsorship && /\b(sponsorship|482|visa|international medical graduate|img|limited registration|provisional registration|supervision)\b/i.test(text)) {
+        preliminaryScore += 12;
+        reasons.push("visa/AHPRA signal");
+      }
+
+      if (/\b(srmo|senior resident medical officer|registrar|principal house officer|pho|consultant|staff specialist|director|vm(o|p))\b/i.test(text)) {
+        preliminaryScore -= targetLevel.includes("pho") ? 10 : 35;
+        reasons.push("possibly too senior");
+      }
+
+      if (/\b(gp|general practitioner|vr gp|nurse|rn|enrolled nurse|allied health|physiotherapist|pharmacist|dentist)\b/i.test(text)) {
+        preliminaryScore -= 45;
+        reasons.push("likely wrong role type");
+      }
+
+      if (ahpra.includes("eligible") && /\b(general registration required|specialist registration|required current ahpra registration|unrestricted registration)\b/i.test(text)) {
+        preliminaryScore -= 20;
+        reasons.push("registration risk");
+      }
+
+      preliminaryScore = Math.max(0, Math.min(100, preliminaryScore));
+
+      return {
+        ...job,
+        preliminaryScore,
+        preliminaryReason: reasons.length ? reasons.join(", ") : "basic match"
+      };
+    })
+    .sort((a, b) => (b.preliminaryScore || 0) - (a.preliminaryScore || 0));
+}
+
+function removeJobByLink(link) {
+  currentJobs = currentJobs.filter(job => String(job.link || "") !== String(link || ""));
+  allSearchJobs = allSearchJobs.filter(job => String(job.link || "") !== String(link || ""));
+  scoredJobs = scoredJobs.filter(job => String(job.link || "") !== String(link || ""));
+  renderJobs();
+  renderLoadMoreScoredButton();
+
+  const status = document.getElementById("status");
+  status.innerText = `Removed job. ${currentJobs.length} jobs remaining.`;
 }
 
 async function scoreJobs(loadMore = false) {
@@ -1238,6 +1315,7 @@ function renderJobs() {
       <div class="badge">Score: ${getScoreLabel(job)}</div>
       ${i === 0 && job.numericScore ? `<div class="badge best-match-badge">🔥 Best Match</div>` : i > 0 && i < 3 && job.numericScore ? `<div class="badge strong-match-badge">⭐ Strong Match</div>` : ""}
       <div class="badge">Source: ${getJobSourceLabel(job)}</div>
+      ${job.preliminaryScore !== undefined ? `<div class="badge">Quick fit: ${job.preliminaryScore}/100${job.preliminaryReason ? " — " + job.preliminaryReason : ""}</div>` : ""}
       ${isFavoriteJob(job) ? `<div class="badge favorite-badge">★ Favorite</div>` : ""}
       ${job.daysUntilClosing !== undefined && job.daysUntilClosing !== null ? `<div class="badge ${getClosingBadgeClass(job)}">${job.daysUntilClosing} days remaining</div>` : ""}
       ${job.instantReadiness ? `<div class="badge">${job.instantReadiness}</div>` : ""}
@@ -1251,6 +1329,7 @@ function renderJobs() {
         <button onclick="saveJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}', 'Interested')">Save Interested</button>
         <button onclick="toggleFavoriteByLink('${String(job.link || "").replace(/'/g, "&#39;")}')">${isFavoriteJob(job) ? "Unfavorite" : "Favorite"}</button>
         <button onclick="saveJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}', 'Applied')">Mark Applied</button>
+        <button onclick="removeJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}')" class="button-danger">Remove</button>
       </div>
     `;
 
