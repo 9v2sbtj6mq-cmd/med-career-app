@@ -430,6 +430,12 @@
       border-color: #fde68a;
     }
 
+    .favorite-badge {
+      background: #fef9c3;
+      color: #854d0e;
+      border-color: #fde68a;
+    }
+
     .closing-soon-badge {
       background: #fee2e2;
       color: #991b1b;
@@ -468,6 +474,57 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .history-list {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .history-item {
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 13px;
+    }
+
+    .history-item strong {
+      display: block;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .history-item span {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .selected-job-banner {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .output-label {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: #ecfeff;
+      color: #155e75;
+      border: 1px solid #a5f3fc;
+      font-size: 12px;
+      font-weight: 900;
       margin-bottom: 10px;
     }
 
@@ -595,8 +652,8 @@
           <label>Minimum score</label>
           <select id="filterScore" onchange="renderJobs()">
             <option value="0">Any score</option>
-            <option value="50">50+</option>
-            <option value="75">75+</option>
+            <option value="3">3/5+</option>
+            <option value="4">4/5+</option>
           </select>
         </div>
         <div>
@@ -626,6 +683,8 @@
   <div class="right-panel">
     <div class="section">
       <h3>Selected Job</h3>
+      <div id="selectedJobBanner" class="selected-job-banner">No job selected yet.</div>
+      <button onclick="clearSelectedJob()" class="button-secondary">Clear Selected Job</button>
       <textarea id="job" rows="10" placeholder="Selected job will appear here"></textarea>
     </div>
 
@@ -637,6 +696,7 @@
         <button onclick="generatePack()" class="button-green">Generate Application Pack</button>
         <button onclick="generateCV()">Generate CV Only</button>
         <button onclick="generateCoverLetter()">Generate Cover Letter Only</button>
+        <button id="reviewCvButton" onclick="reviewGeneratedCV()" class="button-secondary hidden-action">Review Generated CV</button>
         <button onclick="downloadCV()" class="button-secondary hidden-action">Download CV Word</button>
         <button onclick="downloadCoverLetter()" class="button-secondary hidden-action">Download Cover Letter Word</button>
         <button onclick="downloadApplicationPack()" class="button-secondary hidden-action">Download Application Pack Word</button>
@@ -647,7 +707,13 @@
         <button onclick="regenerateLastDocument()" class="button-secondary hidden-action">Regenerate Last Document</button>
         <button onclick="clearGeneratedDraft()" class="button-danger hidden-action">Clear Draft</button>
       </div>
+      <div id="outputTypeLabel" class="output-label" style="display:none;">No document generated</div>
       <pre id="result"></pre>
+      <div class="document-toolbar">
+        <button onclick="renderDocumentHistory()" class="button-secondary">Show Recent Documents</button>
+        <button onclick="clearDocumentHistory()" class="button-danger">Clear Document History</button>
+      </div>
+      <div id="documentHistory" class="history-list"></div>
     </div>
   </div>
 </div>
@@ -700,6 +766,37 @@ function setDocumentActionsReady() {
   document.getElementById("documentActions")?.classList.add("document-actions-ready");
 }
 
+function setSelectedJobBanner(title = "") {
+  const banner = document.getElementById("selectedJobBanner");
+  if (!banner) return;
+  banner.innerText = title ? `Selected job: ${title}` : "No job selected yet.";
+}
+
+function clearSelectedJob() {
+  selectedJobIndex = null;
+  document.getElementById("job").value = "";
+  document.getElementById("result").innerText = "";
+  setSelectedJobBanner("");
+  setOutputType("");
+  document.getElementById("reviewCvButton")?.classList.add("hidden-action");
+  renderJobs();
+  renderLoadMoreScoredButton();
+}
+
+function setOutputType(type = "") {
+  const label = document.getElementById("outputTypeLabel");
+  if (!label) return;
+
+  if (!type) {
+    label.style.display = "none";
+    label.innerText = "No document generated";
+    return;
+  }
+
+  label.style.display = "inline-flex";
+  label.innerText = type;
+}
+
 
 function focusResultPanel() {
   document.getElementById("result")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -715,12 +812,97 @@ function setLoading(message) {
 function saveGeneratedDraft(type, text) {
   if (!text || text.length < 20) return;
 
-  localStorage.setItem("lastGeneratedDocument", JSON.stringify({
+  const draft = {
+    id: Date.now(),
     type,
     text,
     job: document.getElementById("job").value || "",
+    selectedTitle: document.getElementById("selectedJobBanner")?.innerText || "",
     savedAt: new Date().toISOString()
-  }));
+  };
+
+  localStorage.setItem("lastGeneratedDocument", JSON.stringify(draft));
+  saveDocumentHistoryItem(draft);
+}
+
+function getDocumentHistory() {
+  return JSON.parse(localStorage.getItem("generatedDocumentHistory") || "[]");
+}
+
+function setDocumentHistory(history) {
+  localStorage.setItem("generatedDocumentHistory", JSON.stringify(history.slice(0, 10)));
+}
+
+function saveDocumentHistoryItem(draft) {
+  const history = getDocumentHistory();
+  const withoutDuplicate = history.filter(item => item.text !== draft.text);
+  setDocumentHistory([draft, ...withoutDuplicate]);
+  renderDocumentHistory();
+}
+
+function getDocumentTypeLabel(type = "") {
+  const labelMap = {
+    cv: "Generated CV",
+    coverLetter: "Generated Cover Letter",
+    pack: "Generated Application Pack",
+    cvReview: "CV Review"
+  };
+  return labelMap[type] || "Generated Document";
+}
+
+function renderDocumentHistory() {
+  const box = document.getElementById("documentHistory");
+  if (!box) return;
+
+  const history = getDocumentHistory();
+
+  if (!history.length) {
+    box.innerHTML = `<div class="empty-state">No recent generated documents yet.</div>`;
+    return;
+  }
+
+  box.innerHTML = "";
+  history.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.className = "history-item";
+    div.innerHTML = `
+      <strong>${getDocumentTypeLabel(item.type)}</strong>
+      <span>${item.selectedTitle || "No selected job"}<br>${new Date(item.savedAt).toLocaleString()}</span>
+      <div class="button-row">
+        <button onclick="restoreDocumentHistoryItem(${index})" class="button-secondary">Restore</button>
+        <button onclick="removeDocumentHistoryItem(${index})" class="button-danger">Remove</button>
+      </div>
+    `;
+    box.appendChild(div);
+  });
+}
+
+function restoreDocumentHistoryItem(index) {
+  const history = getDocumentHistory();
+  const item = history[index];
+  if (!item) return;
+
+  localStorage.setItem("lastGeneratedDocument", JSON.stringify(item));
+  document.getElementById("result").innerText = item.text || "";
+  if (item.job) document.getElementById("job").value = item.job;
+  if (item.selectedTitle) document.getElementById("selectedJobBanner").innerText = item.selectedTitle;
+  setOutputType(getDocumentTypeLabel(item.type));
+  setDocumentActionsReady();
+  document.getElementById("reviewCvButton")?.classList.toggle("hidden-action", item.type !== "cv");
+  focusResultPanel();
+}
+
+function removeDocumentHistoryItem(index) {
+  const history = getDocumentHistory();
+  history.splice(index, 1);
+  setDocumentHistory(history);
+  renderDocumentHistory();
+}
+
+function clearDocumentHistory() {
+  if (!confirm("Clear recent generated document history?")) return;
+  localStorage.removeItem("generatedDocumentHistory");
+  renderDocumentHistory();
 }
 
 function restoreGeneratedDraft() {
@@ -733,7 +915,10 @@ function restoreGeneratedDraft() {
 
     document.getElementById("result").innerText = draft.text;
     if (draft.job) document.getElementById("job").value = draft.job;
+    if (draft.selectedTitle) document.getElementById("selectedJobBanner").innerText = draft.selectedTitle;
+    setOutputType(getDocumentTypeLabel(draft.type));
     setDocumentActionsReady();
+    document.getElementById("reviewCvButton")?.classList.toggle("hidden-action", draft.type !== "cv");
   } catch (error) {
     localStorage.removeItem("lastGeneratedDocument");
   }
@@ -742,6 +927,8 @@ function restoreGeneratedDraft() {
 function clearGeneratedDraft() {
   localStorage.removeItem("lastGeneratedDocument");
   document.getElementById("result").innerText = "";
+  setOutputType("");
+  document.getElementById("reviewCvButton")?.classList.add("hidden-action");
 }
 
 async function copyResult() {
@@ -796,7 +983,7 @@ function getFilteredJobs() {
 
     if (text && !haystack.includes(text)) return false;
     if (source && !sourceLabel.toLowerCase().includes(source.toLowerCase())) return false;
-    if (minScore && getJobScore(job) < minScore) return false;
+    if (minScore && getScoreOutOfFive(job) < minScore) return false;
 
     if (closingWithin) {
       const days = Number(job.daysUntilClosing);
@@ -927,9 +1114,16 @@ function renderLoadMoreScoredButton() {
   box.innerHTML = `<button onclick="scoreJobs(true)" class="button-secondary">Load more scored jobs</button>`;
 }
 
+function getScoreOutOfFive(job) {
+  const score = getJobScore(job);
+  if (!Number.isFinite(score)) return 0;
+  return score > 5 ? score / 20 : score;
+}
+
 function getCardClass(score) {
-  if (score >= 75) return "best";
-  if (score >= 50) return "medium";
+  const scoreOutOfFive = score > 5 ? score / 20 : score;
+  if (scoreOutOfFive >= 4) return "best";
+  if (scoreOutOfFive >= 3) return "medium";
   return "low";
 }
 
@@ -1036,13 +1230,15 @@ function renderJobs() {
   jobsToRender.forEach((job, i) => {
     const div = document.createElement("div");
     const score = getJobScore(job);
-    div.className = "job-card " + getCardClass(score) + (selectedJobIndex === i ? " selected-job" : "");
+    const originalIndex = currentJobs.findIndex(item => String(item.link || "") === String(job.link || ""));
+    div.className = "job-card " + getCardClass(score) + (selectedJobIndex === originalIndex ? " selected-job" : "");
 
     div.innerHTML = `
       <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
       <div class="badge">Score: ${getScoreLabel(job)}</div>
       ${i === 0 && job.numericScore ? `<div class="badge best-match-badge">🔥 Best Match</div>` : i > 0 && i < 3 && job.numericScore ? `<div class="badge strong-match-badge">⭐ Strong Match</div>` : ""}
       <div class="badge">Source: ${getJobSourceLabel(job)}</div>
+      ${isFavoriteJob(job) ? `<div class="badge favorite-badge">★ Favorite</div>` : ""}
       ${job.daysUntilClosing !== undefined && job.daysUntilClosing !== null ? `<div class="badge ${getClosingBadgeClass(job)}">${job.daysUntilClosing} days remaining</div>` : ""}
       ${job.instantReadiness ? `<div class="badge">${job.instantReadiness}</div>` : ""}
       ${job.closingStatus ? `<div class="badge">${job.closingStatus}${job.closingDate ? ": " + job.closingDate : ""}</div>` : ""}
@@ -1053,6 +1249,7 @@ function renderJobs() {
       <div class="button-row">
         <button onclick="selectJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}')">Use Job</button>
         <button onclick="saveJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}', 'Interested')">Save Interested</button>
+        <button onclick="toggleFavoriteByLink('${String(job.link || "").replace(/'/g, "&#39;")}')">${isFavoriteJob(job) ? "Unfavorite" : "Favorite"}</button>
         <button onclick="saveJobByLink('${String(job.link || "").replace(/'/g, "&#39;")}', 'Applied')">Mark Applied</button>
       </div>
     `;
@@ -1066,6 +1263,8 @@ function selectJob(i) {
   selectedJobIndex = i;
   document.getElementById("job").value = buildJobText(job);
   document.getElementById("result").innerText = "Selected job: " + (job.title || "Untitled job");
+  setSelectedJobBanner(job.title || "Untitled job");
+  setOutputType("");
   renderJobs();
   renderLoadMoreScoredButton();
   document.querySelector(".right-panel")?.scrollTo({ top: 0, behavior: "smooth" });
@@ -1082,7 +1281,7 @@ function saveJobByLink(link, statusValue = "Interested") {
 }
 
 function saveJob(i, statusValue = "Interested") {
-  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  let saved = getSavedJobs();
   const job = currentJobs[i];
 
   if (!job) return;
@@ -1099,12 +1298,12 @@ function saveJob(i, statusValue = "Interested") {
     savedAt: new Date().toLocaleString()
   });
 
-  localStorage.setItem("jobs", JSON.stringify(saved));
+  setSavedJobs(saved);
   renderSavedJobs();
 }
 
 function renderSavedJobs() {
-  const saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const saved = getSavedJobs();
   const box = document.getElementById("savedJobs");
   if (!box) return;
 
@@ -1122,6 +1321,7 @@ function renderSavedJobs() {
     div.innerHTML = `
       <div class="job-title">${i + 1}. ${job.title || "Untitled job"}</div>
       <div class="badge">${job.status || "Interested"}</div>
+      ${job.favorite ? `<div class="badge favorite-badge">★ Favorite</div>` : ""}
       <div class="badge">Source: ${getJobSourceLabel(job)}</div>
       ${job.expiryLabel ? `<div class="badge ${getClosingBadgeClass(job)}">${job.expiryLabel}</div>` : ""}
       ${job.closingDate ? `<div class="badge">Closing: ${job.closingDate}</div>` : ""}
@@ -1145,6 +1345,7 @@ function renderSavedJobs() {
 
       <div class="button-row">
         <button onclick="useSavedJob(${i})">Use Job</button>
+        <button onclick="toggleSavedFavorite(${i})">${job.favorite ? "Unfavorite" : "Favorite"}</button>
         <button onclick="removeSavedJob(${i})">Remove</button>
       </div>
     `;
@@ -1154,30 +1355,32 @@ function renderSavedJobs() {
 }
 
 function updateSavedJobField(i, field, value) {
-  const saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const saved = getSavedJobs();
   if (!saved[i]) return;
 
   saved[i][field] = value;
-  localStorage.setItem("jobs", JSON.stringify(saved));
+  setSavedJobs(saved);
 }
 
 function useSavedJob(i) {
-  const saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  const saved = getSavedJobs();
   const job = saved[i];
   if (!job) return;
 
   selectedJobIndex = null;
   document.getElementById("job").value = buildJobText(job);
   document.getElementById("result").innerText = "Selected saved job: " + (job.title || "Untitled job");
+  setSelectedJobBanner(job.title || "Untitled job");
+  setOutputType("");
   renderJobs();
   renderLoadMoreScoredButton();
   document.querySelector(".right-panel")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function removeSavedJob(i) {
-  let saved = JSON.parse(localStorage.getItem("jobs") || "[]");
+  let saved = getSavedJobs();
   saved.splice(i, 1);
-  localStorage.setItem("jobs", JSON.stringify(saved));
+  setSavedJobs(saved);
   renderSavedJobs();
 }
 
@@ -1197,6 +1400,7 @@ async function generateCV() {
   }
 
   setLoading("Generating tailored CV. This may take a few seconds...");
+  setOutputType("Generating CV");
 
   const res = await fetch("/cv", {
     method: "POST",
@@ -1206,8 +1410,10 @@ async function generateCV() {
 
   const data = await res.json();
   result.innerText = data.result || data.error || "No CV returned.";
+  setOutputType("Generated CV");
   saveGeneratedDraft("cv", result.innerText);
   setDocumentActionsReady();
+  document.getElementById("reviewCvButton")?.classList.remove("hidden-action");
   focusResultPanel();
 }
 
@@ -1221,6 +1427,7 @@ async function generateCoverLetter() {
   }
 
   setLoading("Generating tailored cover letter. This may take a few seconds...");
+  setOutputType("Generating Cover Letter");
 
   const res = await fetch("/cover-letter", {
     method: "POST",
@@ -1230,8 +1437,10 @@ async function generateCoverLetter() {
 
   const data = await res.json();
   result.innerText = data.result || data.error || "No cover letter returned.";
+  setOutputType("Generated Cover Letter");
   saveGeneratedDraft("coverLetter", result.innerText);
   setDocumentActionsReady();
+  document.getElementById("reviewCvButton")?.classList.add("hidden-action");
   focusResultPanel();
 }
 
@@ -1245,6 +1454,7 @@ async function generatePack() {
   }
 
   setLoading("Generating full application pack. This may take a little longer...");
+  setOutputType("Generating Application Pack");
 
   const res = await fetch("/application-pack", {
     method: "POST",
@@ -1254,7 +1464,36 @@ async function generatePack() {
 
   const data = await res.json();
   result.innerText = data.result || data.error || "No application pack returned.";
+  setOutputType("Generated Application Pack");
   saveGeneratedDraft("pack", result.innerText);
+  setDocumentActionsReady();
+  document.getElementById("reviewCvButton")?.classList.add("hidden-action");
+  focusResultPanel();
+}
+
+async function reviewGeneratedCV() {
+  const jobText = document.getElementById("job").value.trim();
+  const cvText = document.getElementById("result").innerText.trim();
+  const result = document.getElementById("result");
+
+  if (!jobText || !cvText || cvText.length < 100) {
+    alert("Generate a CV first.");
+    return;
+  }
+
+  setLoading("Reviewing generated CV against the selected job...");
+  setOutputType("Reviewing CV");
+
+  const res = await fetch("/cv-review", {
+    method: "POST",
+    headers: apiHeaders(),
+    body: JSON.stringify({ profile, job: jobText, cvText, cv: cvText, currentCv: cvText, generatedCv: cvText })
+  });
+
+  const data = await res.json();
+  result.innerText = data.result || data.review || data.error || "No CV review returned.";
+  setOutputType("CV Review");
+  saveGeneratedDraft("cvReview", result.innerText);
   setDocumentActionsReady();
   focusResultPanel();
 }
@@ -1358,11 +1597,56 @@ async function downloadApplicationPack() {
   window.URL.revokeObjectURL(url);
 }
 
+function getSavedJobs() {
+  return JSON.parse(localStorage.getItem("jobs") || "[]");
+}
+
+function setSavedJobs(jobs) {
+  localStorage.setItem("jobs", JSON.stringify(jobs));
+}
+
+function isFavoriteJob(job = {}) {
+  const saved = getSavedJobs();
+  return saved.some(savedJob => String(savedJob.link || "") === String(job.link || "") && savedJob.favorite);
+}
+
+function toggleFavoriteByLink(link) {
+  let saved = getSavedJobs();
+  const existingIndex = saved.findIndex(job => String(job.link || "") === String(link || ""));
+  const currentJob = currentJobs.find(job => String(job.link || "") === String(link || ""));
+
+  if (existingIndex >= 0) {
+    saved[existingIndex].favorite = !saved[existingIndex].favorite;
+  } else if (currentJob) {
+    saved.push({
+      ...currentJob,
+      status: "Interested",
+      notes: "",
+      favorite: true,
+      savedAt: new Date().toLocaleString()
+    });
+  }
+
+  setSavedJobs(saved);
+  renderJobs();
+  renderSavedJobs();
+}
+
+function toggleSavedFavorite(i) {
+  const saved = getSavedJobs();
+  if (!saved[i]) return;
+  saved[i].favorite = !saved[i].favorite;
+  setSavedJobs(saved);
+  renderSavedJobs();
+  renderJobs();
+}
+
 (async function initApp() {
   await checkAccess();
   loadProfile();
   renderSavedJobs();
   restoreGeneratedDraft();
+  renderDocumentHistory();
 })();
 </script>
 </div>

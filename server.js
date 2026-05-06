@@ -1,4 +1,6 @@
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const express = require("express");
 const dotenv = require("dotenv");
 const mammoth = require("mammoth");
@@ -11,6 +13,21 @@ const { Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType } = re
 dotenv.config();
 
 const app = express();
+function logAnalytics(event, details = {}) {
+  const entry = {
+    time: new Date().toISOString(),
+    event,
+    ...details
+  };
+
+  console.log("[analytics]", event);
+
+  fs.appendFile(
+    path.join(__dirname, "analytics.log"),
+    JSON.stringify(entry) + "\n",
+    () => {}
+  );
+}
 app.use(express.json({ limit: "25mb" }));
 app.use(express.static("."));
 
@@ -46,9 +63,11 @@ app.post("/auth", (req, res) => {
   const { accessCode } = req.body || {};
 
   if (!accessCode || accessCode !== APP_ACCESS_CODE) {
+    logAnalytics("auth_failed", { ip: req.ip });
     return res.status(401).json({ error: "Invalid access code." });
   }
 
+  logAnalytics("auth_success", { ip: req.ip });
   res.json({ token: APP_SESSION_TOKEN });
 });
 
@@ -416,6 +435,7 @@ function buildSearchQueryFromProfile(profile) {
     .trim();
 }
 
+
 function buildMedicalContext(profile, job) {
   return `
 Doctor Profile:
@@ -424,6 +444,41 @@ ${profileToText(profile)}
 Job Description:
 ${job}
 `;
+}
+
+// Helper functions for safe download filenames
+function safeFilenamePart(value = "", fallback = "Document") {
+  return String(value || fallback)
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 60) || fallback;
+}
+
+function extractFieldFromProfileText(profileText = "", fieldName = "") {
+  const regex = new RegExp(`${fieldName}:\\s*(.*)`, "i");
+  return String(profileText || "").match(regex)?.[1]?.trim() || "";
+}
+
+function extractJobTitleFromJobText(job = "") {
+  const text = String(job || "");
+  const titleMatch = text.match(/Title:\s*(.*)/i);
+  if (titleMatch?.[1]) return titleMatch[1].trim();
+
+  const selectedMatch = text.match(/Selected job:\s*(.*)/i);
+  if (selectedMatch?.[1]) return selectedMatch[1].trim();
+
+  return "Job";
+}
+
+function buildDownloadFilename(profile, job, documentType = "Document") {
+  const profileText = profileToText(profile);
+  const name = safeFilenamePart(extractFieldFromProfileText(profileText, "Name"), "Medical");
+  const level = safeFilenamePart(extractFieldFromProfileText(profileText, "Level"), "Doctor");
+  const jobTitle = safeFilenamePart(extractJobTitleFromJobText(job), "Job");
+  const type = safeFilenamePart(documentType, "Document");
+
+  return `${name}_${level}_${jobTitle}_${type}.docx`;
 }
 
 
@@ -1345,6 +1400,13 @@ app.post("/auto-search", async (req, res) => {
     }
 
     const userQuery = query || buildSearchQueryFromProfile(profile);
+    logAnalytics("search_started", {
+      query: userQuery,
+      level: profile?.jobLevel || profile?.level || "",
+      state: profile?.stateFilter || "",
+      specialty: profile?.specialtyInterest || "",
+      needsSponsorship: Boolean(profile?.needsSponsorship)
+    });
     console.log("AUTO SEARCH START");
     console.log("Query used:", userQuery);
 
@@ -1459,9 +1521,14 @@ app.post("/auto-search", async (req, res) => {
 
     console.log("Unique jobs after dedupe:", uniqueJobs.length);
     searchCache.set(cacheKey, uniqueJobs);
+    logAnalytics("search_completed", {
+      query: userQuery,
+      resultCount: uniqueJobs.length
+    });
     res.json({ results: uniqueJobs, queryUsed: userQuery });
 
   } catch (error) {
+    logAnalytics("search_error", { message: error.message });
     res.status(500).json({
       error: `Auto-search error: ${error.message}`
     });
@@ -1472,6 +1539,12 @@ app.post("/score-jobs", async (req, res) => {
   try {
     const { jobs, quickProfile, profile, offset = 0, limit = 10 } = req.body;
     const applicantProfile = quickProfile || profileToText(profile);
+
+    logAnalytics("score_started", {
+      receivedJobs: Array.isArray(jobs) ? jobs.length : 0,
+      offset,
+      limit
+    });
 
     if (!Array.isArray(jobs) || jobs.length === 0) {
       return res.status(400).json({ error: "No jobs received for scoring." });
@@ -1548,6 +1621,14 @@ Days until closing: ${job.daysUntilClosing ?? "Not available"}
       totalSuitable: splitJobs.suitable.length
     });
 
+    logAnalytics("score_completed", {
+      scoredCount: scoredJobs.length,
+      rejectedCount: splitJobs.rejected.length,
+      nextOffset: safeOffset + scoredJobs.length,
+      totalSuitable: splitJobs.suitable.length,
+      provider: SCORING_PROVIDER
+    });
+
     res.json({
       results: scoredJobs,
       rejected: splitJobs.rejected,
@@ -1556,6 +1637,7 @@ Days until closing: ${job.daysUntilClosing ?? "Not available"}
       totalSuitable: splitJobs.suitable.length
     });
   } catch (error) {
+    logAnalytics("score_error", { message: error.message });
     res.status(500).json({ error: `Score error: ${error.message}` });
   }
 });
@@ -1563,6 +1645,9 @@ Days until closing: ${job.daysUntilClosing ?? "Not available"}
 app.post("/application-pack", async (req, res) => {
   try {
     const { profile, job } = req.body;
+    logAnalytics("application_pack_started", {
+      jobTitle: extractJobTitleFromJobText(job)
+    });
 
     const prompt = `
 You are an Australian medical recruitment assistant.
@@ -1613,8 +1698,13 @@ ${buildMedicalContext(profile, job)}
 
     const cacheKey = makeGeminiCacheKey("application-pack", profile, job, MODEL_SMART);
     const result = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
+    logAnalytics("application_pack_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: result.length
+    });
     res.json({ result });
   } catch (error) {
+    logAnalytics("application_pack_error", { message: error.message });
     res.status(500).json({ error: `Application pack error: ${error.message}` });
   }
 });
@@ -1622,6 +1712,9 @@ ${buildMedicalContext(profile, job)}
 app.post("/application-pack-download", async (req, res) => {
   try {
     const { profile, job } = req.body;
+    logAnalytics("application_pack_download_started", {
+      jobTitle: extractJobTitleFromJobText(job)
+    });
 
     const prompt = `
 Prepare a complete semi-automated Australian medical job application pack.
@@ -1645,8 +1738,13 @@ ${buildMedicalContext(profile, job)}
 
     const cacheKey = makeGeminiCacheKey("application-pack-download", profile, job, MODEL_SMART);
     const text = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
-    await createDocxFromText(text, "Application_Pack.docx", res);
+    logAnalytics("application_pack_download_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: text.length
+    });
+    await createDocxFromText(text, buildDownloadFilename(profile, job, "Application_Pack"), res);
   } catch (error) {
+    logAnalytics("application_pack_download_error", { message: error.message });
     res.status(500).json({ error: `Application pack download error: ${error.message}` });
   }
 });
@@ -1657,8 +1755,12 @@ app.post("/upload-docx", async (req, res) => {
 
     const buffer = Buffer.from(req.body.file, "base64");
     const result = await mammoth.extractRawText({ buffer });
+    logAnalytics("cv_uploaded", {
+      extractedChars: result.value?.length || 0
+    });
     res.json({ text: result.value });
   } catch (error) {
+    logAnalytics("cv_upload_error", { message: error.message });
     res.status(500).json({ error: `Word upload error: ${error.message}` });
   }
 });
@@ -1666,6 +1768,9 @@ app.post("/upload-docx", async (req, res) => {
 app.post("/evaluate", async (req, res) => {
   try {
     const { profile, job } = req.body;
+    logAnalytics("evaluate_started", {
+      jobTitle: extractJobTitleFromJobText(job)
+    });
 
     const prompt = `
 You are an expert Australian medical recruiter.
@@ -1686,8 +1791,13 @@ ${buildMedicalContext(profile, job)}
 
     const cacheKey = makeGeminiCacheKey("evaluate", profile, job, MODEL_SMART);
     const result = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
+    logAnalytics("evaluate_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: result.length
+    });
     res.json({ result });
   } catch (error) {
+    logAnalytics("evaluate_error", { message: error.message });
     res.status(500).json({ error: `Evaluate error: ${error.message}` });
   }
 });
@@ -1695,6 +1805,9 @@ ${buildMedicalContext(profile, job)}
 app.post("/cv", async (req, res) => {
   try {
     const { profile, job } = req.body;
+    logAnalytics("cv_generation_started", {
+      jobTitle: extractJobTitleFromJobText(job)
+    });
 
     const prompt = `
 You are an expert Australian hospital medical CV writer.
@@ -1746,8 +1859,13 @@ ${buildMedicalContext(profile, job)}
 
     const cacheKey = makeGeminiCacheKey("cv", profile, job, MODEL_SMART);
     const result = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
+    logAnalytics("cv_generation_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: result.length
+    });
     res.json({ result });
   } catch (error) {
+    logAnalytics("cv_generation_error", { message: error.message });
     res.status(500).json({ error: `CV error: ${error.message}` });
   }
 });
@@ -1755,21 +1873,18 @@ ${buildMedicalContext(profile, job)}
 app.post("/cv-download", async (req, res) => {
   try {
     const { profile, job, cvText } = req.body;
+    logAnalytics("cv_download_started", {
+      jobTitle: extractJobTitleFromJobText(job),
+      usedExistingText: Boolean(cvText && String(cvText).trim().length > 100)
+    });
 
     if (cvText && String(cvText).trim().length > 100) {
-      const profileText = profileToText(profile);
-      const nameMatch = String(profileText || "").match(/Name:\s*(.*)/);
-      const levelMatch = String(profileText || "").match(/Level:\s*(.*)/);
-      const safeName = (nameMatch?.[1] || "Medical")
-        .trim()
-        .replace(/[^a-z0-9]+/gi, "_")
-        .replace(/^_+|_+$/g, "") || "Medical";
-      const safeLevel = (levelMatch?.[1] || "CV")
-        .trim()
-        .replace(/[^a-z0-9]+/gi, "_")
-        .replace(/^_+|_+$/g, "") || "CV";
-
-      return await createDocxFromText(String(cvText).trim(), `${safeName}_${safeLevel}_CV.docx`, res);
+      logAnalytics("cv_download_completed", {
+        jobTitle: extractJobTitleFromJobText(job),
+        source: "existing_text",
+        chars: String(cvText).trim().length
+      });
+      return await createDocxFromText(String(cvText).trim(), buildDownloadFilename(profile, job, "CV"), res);
     }
 
     const prompt = `
@@ -1803,20 +1918,14 @@ ${buildMedicalContext(profile, job)}
 
     const cacheKey = makeGeminiCacheKey("cv-download", profile, job, MODEL_SMART);
     const text = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
-    const profileText = profileToText(profile);
-    const nameMatch = String(profileText || "").match(/Name:\s*(.*)/);
-    const levelMatch = String(profileText || "").match(/Level:\s*(.*)/);
-    const safeName = (nameMatch?.[1] || "Medical")
-      .trim()
-      .replace(/[^a-z0-9]+/gi, "_")
-      .replace(/^_+|_+$/g, "") || "Medical";
-    const safeLevel = (levelMatch?.[1] || "CV")
-      .trim()
-      .replace(/[^a-z0-9]+/gi, "_")
-      .replace(/^_+|_+$/g, "") || "CV";
-
-    await createDocxFromText(text, `${safeName}_${safeLevel}_CV.docx`, res);
+    logAnalytics("cv_download_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      source: "generated",
+      chars: text.length
+    });
+    await createDocxFromText(text, buildDownloadFilename(profile, job, "CV"), res);
   } catch (error) {
+    logAnalytics("cv_download_error", { message: error.message });
     res.status(500).json({ error: `CV download error: ${error.message}` });
   }
 });
@@ -1824,6 +1933,10 @@ ${buildMedicalContext(profile, job)}
 app.post("/cv-review", async (req, res) => {
   try {
     const { profile, job, cvText } = req.body;
+    logAnalytics("cv_review_started", {
+      jobTitle: extractJobTitleFromJobText(job),
+      cvChars: String(cvText || "").length
+    });
 
     const prompt = `
 You are an Australian medical recruitment reviewer.
@@ -1858,8 +1971,13 @@ ${cvText || ""}
 
     const cacheKey = makeGeminiCacheKey("cv-review", profile, `${job || ""}:${cvText || ""}`, MODEL_SMART);
     const result = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
+    logAnalytics("cv_review_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: result.length
+    });
     res.json({ result });
   } catch (error) {
+    logAnalytics("cv_review_error", { message: error.message });
     res.status(500).json({ error: `CV review error: ${error.message}` });
   }
 });
@@ -1867,6 +1985,9 @@ ${cvText || ""}
 app.post("/job-criteria", async (req, res) => {
   try {
     const { profile, job } = req.body;
+    logAnalytics("job_criteria_started", {
+      jobTitle: extractJobTitleFromJobText(job)
+    });
 
     const prompt = `
 You are an Australian medical recruitment assistant.
@@ -1898,8 +2019,13 @@ ${buildMedicalContext(profile, job)}
       MODEL_SMART
     );
 
+    logAnalytics("job_criteria_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: result.length
+    });
     res.json({ result });
   } catch (error) {
+    logAnalytics("job_criteria_error", { message: error.message });
     res.status(500).json({ error: `Job criteria error: ${error.message}` });
   }
 });
@@ -1907,6 +2033,11 @@ ${buildMedicalContext(profile, job)}
 app.post("/cv-improve", async (req, res) => {
   try {
     const { profile, job, cvText, reviewText } = req.body;
+    logAnalytics("cv_improve_started", {
+      jobTitle: extractJobTitleFromJobText(job),
+      cvChars: String(cvText || "").length,
+      reviewChars: String(reviewText || "").length
+    });
 
     const prompt = `
 You are an expert Australian medical CV editor.
@@ -1946,8 +2077,13 @@ ${cvText || ""}
       MODEL_SMART
     );
 
+    logAnalytics("cv_improve_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: result.length
+    });
     res.json({ result });
   } catch (error) {
+    logAnalytics("cv_improve_error", { message: error.message });
     res.status(500).json({ error: `CV improve error: ${error.message}` });
   }
 });
@@ -1955,6 +2091,9 @@ ${cvText || ""}
 app.post("/cover-letter", async (req, res) => {
   try {
     const { profile, job } = req.body;
+    logAnalytics("cover_letter_started", {
+      jobTitle: extractJobTitleFromJobText(job)
+    });
 
     const prompt = `
 Write an Australian medical cover letter.
@@ -1984,8 +2123,13 @@ ${buildMedicalContext(profile, job)}
 
     const cacheKey = makeGeminiCacheKey("cover-letter", profile, job, MODEL_SMART);
     const result = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
+    logAnalytics("cover_letter_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      chars: result.length
+    });
     res.json({ result });
   } catch (error) {
+    logAnalytics("cover_letter_error", { message: error.message });
     res.status(500).json({ error: `Cover letter error: ${error.message}` });
   }
 });
@@ -1993,21 +2137,18 @@ ${buildMedicalContext(profile, job)}
 app.post("/cover-letter-download", async (req, res) => {
   try {
     const { profile, job, coverLetterText } = req.body;
+    logAnalytics("cover_letter_download_started", {
+      jobTitle: extractJobTitleFromJobText(job),
+      usedExistingText: Boolean(coverLetterText && String(coverLetterText).trim().length > 100)
+    });
 
     if (coverLetterText && String(coverLetterText).trim().length > 100) {
-      const profileText = profileToText(profile);
-      const nameMatch = String(profileText || "").match(/Name:\s*(.*)/);
-      const levelMatch = String(profileText || "").match(/Level:\s*(.*)/);
-      const safeName = (nameMatch?.[1] || "Medical")
-        .trim()
-        .replace(/[^a-z0-9]+/gi, "_")
-        .replace(/^_+|_+$/g, "") || "Medical";
-      const safeLevel = (levelMatch?.[1] || "Cover")
-        .trim()
-        .replace(/[^a-z0-9]+/gi, "_")
-        .replace(/^_+|_+$/g, "") || "Cover";
-
-      return await createDocxFromText(String(coverLetterText).trim(), `${safeName}_${safeLevel}_Cover_Letter.docx`, res);
+      logAnalytics("cover_letter_download_completed", {
+        jobTitle: extractJobTitleFromJobText(job),
+        source: "existing_text",
+        chars: String(coverLetterText).trim().length
+      });
+      return await createDocxFromText(String(coverLetterText).trim(), buildDownloadFilename(profile, job, "Cover_Letter"), res);
     }
 
     const prompt = `
@@ -2037,20 +2178,14 @@ ${buildMedicalContext(profile, job)}
 
     const cacheKey = makeGeminiCacheKey("cover-letter-download", profile, job, MODEL_SMART);
     const text = await askGeminiCached(cacheKey, prompt, MODEL_SMART);
-    const profileText = profileToText(profile);
-    const nameMatch = String(profileText || "").match(/Name:\s*(.*)/);
-    const levelMatch = String(profileText || "").match(/Level:\s*(.*)/);
-    const safeName = (nameMatch?.[1] || "Medical")
-      .trim()
-      .replace(/[^a-z0-9]+/gi, "_")
-      .replace(/^_+|_+$/g, "") || "Medical";
-    const safeLevel = (levelMatch?.[1] || "Cover")
-      .trim()
-      .replace(/[^a-z0-9]+/gi, "_")
-      .replace(/^_+|_+$/g, "") || "Cover";
-
-    await createDocxFromText(text, `${safeName}_${safeLevel}_Cover_Letter.docx`, res);
+    logAnalytics("cover_letter_download_completed", {
+      jobTitle: extractJobTitleFromJobText(job),
+      source: "generated",
+      chars: text.length
+    });
+    await createDocxFromText(text, buildDownloadFilename(profile, job, "Cover_Letter"), res);
   } catch (error) {
+    logAnalytics("cover_letter_download_error", { message: error.message });
     res.status(500).json({ error: `Cover letter download error: ${error.message}` });
   }
 });
