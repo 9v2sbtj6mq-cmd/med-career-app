@@ -402,6 +402,123 @@ ${profile.refereesOnRequest ? "Referees available on request" : (selectedReferee
 `;
 }
 
+function extractCvSection(rawCv = "", sectionNames = []) {
+  const text = String(rawCv || "");
+  if (!text.trim()) return "";
+
+  const escapedNames = sectionNames.map(name =>
+    String(name || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  );
+
+  const allHeadings = [
+    "personal details",
+    "contact",
+    "contact details",
+    "professional summary",
+    "professional profile",
+    "profile",
+    "career objective",
+    "summary",
+    "registration",
+    "medical registration",
+    "ahpra",
+    "visa",
+    "work rights",
+    "employment history",
+    "work history",
+    "work experience",
+    "clinical experience",
+    "professional experience",
+    "education",
+    "qualifications",
+    "academic qualifications",
+    "skills",
+    "clinical skills",
+    "procedural skills",
+    "courses",
+    "certifications",
+    "certificates",
+    "audit",
+    "audits",
+    "research",
+    "publications",
+    "presentations",
+    "teaching",
+    "leadership",
+    "achievements",
+    "referees",
+    "references"
+  ];
+
+  const headingPattern = allHeadings
+    .map(heading => heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+
+  for (const name of escapedNames) {
+    const regex = new RegExp(
+      `(?:^|\\n)\\s*(${name})\\s*:?\\s*\\n([\\s\\S]*?)(?=\\n\\s*(?:${headingPattern})\\s*:?\\s*\\n|$)`,
+      "i"
+    );
+
+    const match = text.match(regex);
+    if (match?.[2]) return match[2].trim();
+  }
+
+  return "";
+}
+
+function buildParsedCvFromProfile(profile = {}) {
+  const rawCv = String(profile?.baseCv || "").trim();
+
+  if (!rawCv) {
+    return "No uploaded/pasted CV supplied.";
+  }
+
+  const headerPreview = rawCv
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean)
+    .slice(0, 8)
+    .join("\n");
+
+  return `
+PARSED UPLOADED CV STRUCTURE:
+
+Contact / Header:
+${headerPreview || "[No clear header detected]"}
+
+Professional Profile / Summary:
+${extractCvSection(rawCv, ["professional summary", "professional profile", "profile", "career objective", "summary"]) || "[No clear profile section detected]"}
+
+Registration / AHPRA / Visa:
+${extractCvSection(rawCv, ["registration", "medical registration", "ahpra", "visa", "work rights"]) || "[No clear registration/visa section detected]"}
+
+Employment / Clinical Experience:
+${extractCvSection(rawCv, ["employment history", "work history", "work experience", "clinical experience", "professional experience"]) || "[No clear experience section detected - preserve from full CV below]"}
+
+Education / Qualifications:
+${extractCvSection(rawCv, ["education", "qualifications", "academic qualifications"]) || "[No clear education section detected]"}
+
+Clinical Skills:
+${extractCvSection(rawCv, ["skills", "clinical skills", "procedural skills"]) || "[No clear skills section detected]"}
+
+Courses / Certifications:
+${extractCvSection(rawCv, ["courses", "certifications", "certificates"]) || "[No clear courses section detected]"}
+
+Audits / Research / Publications / Presentations:
+${extractCvSection(rawCv, ["audit", "audits", "research", "publications", "presentations"]) || "[No clear audit/research/publication section detected]"}
+
+Teaching / Leadership / Achievements:
+${extractCvSection(rawCv, ["teaching", "leadership", "achievements"]) || "[No clear teaching/leadership/achievements section detected]"}
+
+Referees / References:
+${extractCvSection(rawCv, ["referees", "references"]) || "[No clear referee section detected]"}
+
+FULL UPLOADED CV TEXT TO PRESERVE:
+${rawCv}
+`;
+}
+
 function buildSearchQueryFromProfile(profile) {
   if (!profile || typeof profile === "string") {
     return "resident medical officer RMO jobs Australia hospital doctor";
@@ -440,6 +557,9 @@ function buildMedicalContext(profile, job) {
   return `
 Doctor Profile:
 ${profileToText(profile)}
+
+Parsed Uploaded CV:
+${buildParsedCvFromProfile(profile)}
 
 Job Description:
 ${job}
@@ -484,6 +604,34 @@ function buildDownloadFilename(profile, job, documentType = "Document") {
 
 function cvTailoringInstructions() {
   return `
+STRICT CV RULES:
+- This is a PROFESSIONAL MEDICAL CV, not a cover letter.
+- NEVER write:
+  • I am applying
+  • I am interested in
+  • Dear Hiring Manager
+  • Thank you for considering
+  • Please find attached
+  • I would welcome the opportunity
+- NEVER mention applying for the hospital or role inside the CV.
+- NEVER use cover letter tone inside the CV.
+- NEVER turn the professional profile into a personal application statement.
+- The professional profile must be factual, concise, and ATS-friendly.
+- The CV must feel like an edited and optimised version of the candidate's real CV.
+- Preserve the candidate's original chronology, employment history, qualifications, registrations, and real experience.
+- Reorganise and improve the CV rather than rewriting it from scratch.
+- Preserve ALL major information from uploaded/pasted CVs unless clearly duplicated.
+- Uploaded/pasted CV content is the factual backbone of the final CV.
+- Structured fields should supplement and strengthen the uploaded CV, not replace it.
+- Do not remove existing jobs, qualifications, skills, publications, audits, or referee information unless duplicated.
+- Reorder sections and bullet points based on job relevance.
+- Prioritise the most relevant clinical experience first.
+- Use concise bullet points and Australian hospital wording.
+- Avoid long paragraphs.
+- Do not invent information.
+- If information is missing, use placeholders such as [Add dates] or [Add hospital].
+- The final CV must look like a genuine Australian medical CV prepared for ATS screening.
+
 CV tailoring instructions:
 - First detect CV Mode from the Doctor Profile, but do not treat the modes as completely separate.
 - If CV Mode is "Use Pasted CV", treat Existing CV as the main source of truth. Preserve the candidate's real chronology, roles, qualifications, and clinical experience.
@@ -495,7 +643,7 @@ CV tailoring instructions:
   • If there is a conflict between pasted CV and structured fields, prefer the pasted CV and use a placeholder/comment only if clarification is needed.
 - Do not invent hospitals, dates, qualifications, registration status, visa status, procedures, audits, publications, referees, or achievements.
 - If information is missing, include a clear placeholder such as [Add dates] or [Add hospital name] rather than making it up.
-- Tailor the CV to the job description by prioritising matching clinical experience, registration/supervision fit, visa/sponsorship fit, ED/hospital/rotational experience, courses, audits, and skills.
+    - Tailor the CV to the job description by prioritising matching clinical experience, ED/hospital/rotational experience, courses, audits, and skills.
 - Reorder bullet points within sections so the most relevant material for this job appears first.
 - Keep the tone polished, natural, human, and suitable for Australian hospital medical recruitment.
 - Make the CV feel like a strong edited version of the candidate's real CV, not a newly invented AI document.
@@ -577,9 +725,14 @@ Role targeting:
 
 CV format:
 - Use a professional Australian hospital CV structure.
+- NEVER include cover letter language inside the CV.
+- NEVER mention wanting to apply for the role.
+- NEVER address the hospital directly.
+- NEVER use greeting or sign-off language.
+- The CV is a factual professional document only.
+- The professional profile must summarise experience, not motivation.
 - Start with name and contact placeholder if missing.
 - Then Professional Profile.
-- Then Registration / Visa / Work Rights.
 - Then Key Clinical Skills.
 - Then Employment History / Clinical Experience.
 - Then Education.
@@ -719,7 +872,7 @@ CV scoring-to-generation workflow:
 - Identify the strongest matching evidence from the applicant's real CV.
 - Identify gaps or weak areas that should be handled carefully.
 - Improve the CV by strengthening relevant real experience, not by inventing new facts.
-- If the job score/readiness suggests visa, AHPRA, supervision, or level concerns, address them honestly in the Registration / Visa / Work Rights section.
+- If the job score/readiness suggests level or role-fit concerns, handle them honestly by strengthening relevant real clinical evidence without inventing facts.
 - If the job is ED/RMO/HMO focused, push acute care, ED exposure, procedures, escalation, referrals, discharge summaries, and supervised decision-making higher in the CV.
 - If the job is rotational or ward-based, push ward care, admissions, documentation, discharge planning, multidisciplinary communication, and follow-up care higher.
 - If the job is procedure-heavy, push suturing, I&D, catheterisation, IV/IA sampling, NG tube insertion, wound care, and other real procedures higher.
@@ -1680,6 +1833,8 @@ Return:
 
 3. COVER LETTER
 Write a complete professional Australian medical cover letter.
+Do NOT mention visa status, sponsorship requirement, work rights, AHPRA registration, AMC result, or English test unless explicitly requested.
+Keep the letter focused on clinical fit, hospital experience, teamwork, procedures, communication, reliability, and role relevance.
 
 4. SHORT APPLICATION EMAIL
 Write a short email to Medical Workforce / recruitment team.
@@ -1828,12 +1983,18 @@ Additional humanisation and de-AI rules:
 
 Output requirements:
 - Return the full tailored CV only.
+- DO NOT include any cover letter sections.
+- DO NOT include greetings, salutations, or sign-offs.
+- DO NOT say the candidate wants to apply for the role.
+- DO NOT mention the hospital in an application-style sentence.
+- DO NOT produce motivational paragraphs.
+- The professional profile must remain factual and recruiter-focused.
 - Use Australian medical CV headings.
 - Use bullet points beginning with "•" for clinical experience, skills, audits, achievements, teaching, and leadership.
 - Include a targeted professional profile at the top.
 - Include key clinical skills relevant to the job and selected role level.
 - Include employment history in reverse chronological order if dates are supplied.
-- Include education, registration/visa information if supplied, courses, audits/research/publications, and referees if supplied.
+- Include education, courses, audits/research/publications, clinical skills, employment history, and referees if supplied.
 - Keep it honest, polished, and professional.
 - Ensure tone is natural, slightly varied, and human (not repetitive or templated).
 - Avoid identical sentence structures across bullet points.
@@ -1848,11 +2009,25 @@ Smart tailoring rules (very important):
   • ED experience if job mentions emergency/acute care
   • Procedures if job mentions hands-on skills
   • Teamwork and escalation if hospital-based role
-  • Supervision level if limited registration is relevant
-  • AMC MCQ, PTE, AHPRA eligibility, and visa/sponsorship status where relevant
+  • Real clinical experience, teamwork, escalation, audits, and hospital exposure where relevant
 - De-emphasise irrelevant experience (do not delete, just move lower).
 - Align wording with job keywords without copying the job description.
 - Make the CV clearly feel "written for this job".
+
+- Preserve ALL major information from the uploaded/pasted CV.
+- Reorganise and optimise existing content instead of rewriting from scratch.
+- Keep the candidate's real chronology and employment history intact.
+- If an uploaded CV exists, treat it as the primary factual source.
+
+
+Uploaded CV preservation workflow:
+- First read the Parsed Uploaded CV Structure.
+- Then check the FULL UPLOADED CV TEXT TO PRESERVE.
+- Use the parsed sections to organise the final CV.
+- Use the full uploaded CV to make sure no major information is lost.
+- If a parsed section is missing, recover the information from the full uploaded CV text.
+- Do not return an empty section if the information exists somewhere in the uploaded CV.
+- Preserve all employment roles, dates, qualifications, audits, publications, and referees unless clearly duplicated.
 
 ${buildMedicalContext(profile, job)}
 `;
@@ -1912,6 +2087,9 @@ Rules:
 - Use any supplied job score, AI score, recommendation, apply readiness, warnings, and instant readiness to improve the CV match.
 - If the selected job text includes an AI Score section, use it internally to strengthen the CV but do not print the score analysis in the CV.
 - Make the downloaded CV use the same smart tailoring and humanisation rules as the preview CV.
+- Use the Parsed Uploaded CV Structure and FULL UPLOADED CV TEXT TO PRESERVE to prevent loss of uploaded CV content.
+- If a parsed section is missing, recover the information from the full uploaded CV text.
+- Never return empty CV sections when uploaded CV content exists.
 
 ${buildMedicalContext(profile, job)}
 `;
@@ -2057,6 +2235,8 @@ Rules:
 - If unsure, prefer omission over guessing.
 - Keep the tone natural, human, and suitable for Australian hospital medical recruitment.
 - Remove generic or AI-sounding phrases.
+- Use Parsed Uploaded CV context if available from the profile.
+- Preserve all major uploaded CV information while improving structure and relevance.
 
 Doctor Profile:
 ${profileToText(profile)}
@@ -2101,10 +2281,11 @@ First identify the job's key criteria internally, then match the applicant's rea
 Use a polished, natural, human tone. Avoid generic AI-sounding statements.
 ${humanWritingInstructions()}
 
-Cover letter style:
+-Cover letter style:
 - Sound like a real doctor applying for the job, not a template.
 - Keep the opening direct and specific to the role.
-- Use the applicant's real rotations, clinical duties, AMC result, English test, registration status, and visa/sponsorship situation where relevant.
+- Use the applicant's real rotations, clinical duties, audits, teamwork examples, procedural exposure, and hospital experience naturally.
+- Do NOT mention visa status, sponsorship requirement, work rights, AHPRA registration, AMC result, or English test unless explicitly requested.
 - Do not overstate Australian experience if the applicant has not worked in Australia.
 - Make sponsorship/AHPRA supervision wording honest and professional.
 - Keep it warm, clear, and concise.
@@ -2115,8 +2296,17 @@ Important:
 - If unsure, prefer omission over guessing.
 
 Return:
-1. Cover letter
-2. Short email text
+1. A complete Australian medical cover letter only.
+2. Then a separate short application email.
+
+STRICT COVER LETTER RULES:
+- This is NOT a CV.
+- Do not output CV headings.
+- Do not output employment history sections.
+- Do not dump the entire CV into the cover letter.
+- Summarise only the most relevant experience.
+- Keep the cover letter concise, targeted, and professional.
+- Use proper letter formatting.
 
 ${buildMedicalContext(profile, job)}
 `;
@@ -2167,6 +2357,10 @@ Cover letter style:
 
 Rules:
 - Return plain text only.
+- This is NOT a CV.
+- Do not output CV sections or employment history headings.
+- Do not paste the candidate's entire CV.
+- Keep the letter concise and role-targeted.
 - Do not use markdown symbols.
 - Do not fake registration or visa status.
 - Tailor it to the supplied job description.

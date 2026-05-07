@@ -261,6 +261,26 @@
       line-height: 1.45;
     }
 
+    .memory-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      padding: 14px;
+      margin-top: 12px;
+    }
+
+    .memory-box h4 {
+      margin: 0 0 8px 0;
+      color: #1e3a8a;
+    }
+
+    .memory-box p {
+      margin: 0 0 10px 0;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
     @media (max-width: 800px) {
       .page-wrap {
         padding: 16px;
@@ -365,6 +385,31 @@
       <input type="checkbox" id="willingToRelocate">
       Willing to relocate
     </label>
+
+    <div class="memory-box">
+      <h4>AI Profile Memory</h4>
+      <p>These preferences help the app write applications in a consistent style for this applicant.</p>
+
+      <label>Career goal</label>
+      <textarea id="careerGoal" placeholder="Example: Seeking an RMO role with ED exposure while progressing toward general registration and future anaesthesia/critical care training."></textarea>
+
+      <label>Preferred CV / cover letter tone</label>
+      <select id="preferredTone">
+        <option selected>Natural, professional and concise</option>
+        <option>Warm and human</option>
+        <option>Formal hospital application style</option>
+        <option>Direct and factual</option>
+      </select>
+
+      <label>Key strengths to emphasise</label>
+      <textarea id="keyStrengths" placeholder="Example: ED exposure, safe escalation, teamwork, IMG adaptability, ward cover, procedural confidence."></textarea>
+
+      <label>Preferred visa/AHPRA wording</label>
+      <textarea id="visaAhpraWording" placeholder="Example: Eligible for limited registration and requires employer sponsorship/supervision. Avoid overstating current registration."></textarea>
+
+      <label>Wording or topics to avoid</label>
+      <textarea id="wordingToAvoid" placeholder="Example: Avoid generic AI phrases, exaggerated claims, consultant-level language, or saying currently registered if only eligible."></textarea>
+    </div>
   </div>
 
   <div class="section">
@@ -589,6 +634,11 @@ function getProfileObject() {
     stateFilter: document.getElementById("stateFilter").value,
     specialtyInterest: document.getElementById("specialtyInterest").value,
     willingToRelocate: document.getElementById("willingToRelocate").checked,
+    careerGoal: document.getElementById("careerGoal").value,
+    preferredTone: document.getElementById("preferredTone").value,
+    keyStrengths: document.getElementById("keyStrengths").value,
+    visaAhpraWording: document.getElementById("visaAhpraWording").value,
+    wordingToAvoid: document.getElementById("wordingToAvoid").value,
     ahpra: document.getElementById("ahpra").value,
     visa: document.getElementById("visa").value,
     needsSponsorship: document.getElementById("needsSponsorship").checked,
@@ -641,6 +691,13 @@ Level: ${profile.jobLevel}
 Preferred State: ${profile.stateFilter}
 Specialty Interest: ${profile.specialtyInterest}
 Willing to Relocate: ${profile.willingToRelocate ? "Yes" : "No"}
+
+AI Profile Memory:
+Career Goal: ${profile.careerGoal}
+Preferred Tone: ${profile.preferredTone}
+Key Strengths to Emphasise: ${profile.keyStrengths}
+Preferred Visa/AHPRA Wording: ${profile.visaAhpraWording}
+Wording or Topics to Avoid: ${profile.wordingToAvoid}
 
 Name: ${profile.name}
 Email: ${profile.email}
@@ -734,6 +791,7 @@ function clearAllFields() {
 
   document.getElementById("jobLevel").value = "RMO";
   document.getElementById("stateFilter").value = "All states";
+  document.getElementById("preferredTone").value = "Natural, professional and concise";
   document.getElementById("ahpra").value = "Eligible for limited registration";
   document.getElementById("visa").value = "Requires sponsorship";
   document.getElementById("cvMode").value = "Merged CV Mode";
